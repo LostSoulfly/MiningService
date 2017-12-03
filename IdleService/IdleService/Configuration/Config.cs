@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace IdleService
 {
@@ -10,23 +12,8 @@ namespace IdleService
     {
         public static bool useBuiltInSessionEXE = false;
 
-        //Settings loaded from config file
-        public static bool enableDebug { get; private set; }
-        public static bool enableLogging { get; private set; }
-        //public static string logFilePath { get; private set; } Not sure how I want to do this yet.
-
-        public static bool stealthMode { get; private set; }
-        public static bool preventSleep { get; private set; }
-        public static bool monitorCpuTemp { get; private set; }
-        public static int maxCpuTemp { get; private set; }
-        public static bool monitorGpuTemp { get; private set; }
-        public static bool cpuUsageThresholdWhileNotIdle { get; private set; }
-        public static int maxGpuTemp { get; private set; }
-        public static bool mineIfBatteryNotFull { get; private set; }
-        public static bool verifyNetworkConnectivity { get; private set; }
-        public static string urlToCheckForNetwork { get; private set; }
-        public static int minutesUntilIdle { get; private set; }
-        public static int resumePausedMiningAfterMinutes { get; private set; }
+        //Settings class instance for de/serialization
+        public static Settings settings;
 
         internal static List<string> cpuMiners { get; private set; }
         internal static List<string> gpuMiners { get; private set; }
@@ -56,18 +43,69 @@ namespace IdleService
         //global sync objects for locking
         internal static readonly object startLock = new object();
         internal static readonly object timeLock = new object();
-
+        
         public static void LoadConfigFromFile (string jsonFilePath)
         {
-            //deserialize the json file into this class' objects
+            //Create a temporary Settings object
+            Settings settingsJson = new Settings();
+
+            //If the passed file path does not exist, load defaults and save them to file
+            if (!File.Exists(jsonFilePath))
+            {
+                LoadDefaultConfig();
+                return;
+            }
+
+            try
+            {
+                //Try to read and deserialize the passed file path into the temporary Settings object
+                settingsJson = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(jsonFilePath));
+
+                //at this point, we can replace the original global settings object with our temp one
+                settings = settingsJson;
+
+            } catch
+            {
+
+            }
 
             //if load was successful
             configInitialized = true;
         }
-
+        
         public static void WriteConfigToFile(string jsonFilePath)
         {
-            //serialize the objects in this class, then write them to a file
+            try
+            {
+                File.WriteAllText(jsonFilePath, JsonConvert.SerializeObject(settings, Formatting.Indented));
+            } catch (Exception ex)
+            {
+                Utilities.Log("WriteConfigToFile: " + ex.Message);
+            }
+        }
+
+        private static void LoadDefaultConfig()
+        {
+            //re-initialize our global settings object
+            settings = new Settings();
+
+            //Call SetupDefaultConfig(), which sets the pre-programmed defaults into the global settings object
+            settings.SetupDefaultConfig();
+
+            //config is now initialized with defaults
+            configInitialized = true;
+
+            //Write the defaults to file
+            WriteConfigToFile("MinerService.json");
+
+        }
+
+        private static Settings VerifySettings(Settings settingsJson)
+        {
+            //verify we don't have any negative numbers, numbers that are lower or higher than safe values, or empty strings (like the url, but only need to check if verifyNetwork is true).
+
+            //return our verified settingsJson object
+            return settingsJson;
         }
 
     }
