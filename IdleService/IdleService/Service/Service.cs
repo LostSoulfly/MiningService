@@ -34,6 +34,7 @@ namespace IdleService
             resume
         }
 
+        #region Json API for XMR-STAK-CPU only
         public class Hashrate
         {
             public List<List<double?>> threads { get; set; }
@@ -66,39 +67,12 @@ namespace IdleService
             public Results results { get; set; }
             public Connection connection { get; set; }
         }
-
+        #endregion
 
         //--------- Configuration ----------
-
-        private string minerExeName;
-        private string minerExe;
-        // full path start command or path to batch file.
-        private string sessionExeName;
-        private string sessionExe;
-        //private bool sessionConnected;
-        private List<string> idleConfig;
-        private List<string> lowCpuConfig;
-        private bool running;
-        private bool idleMode;
-        private bool isIdle;
-        private bool isLoggedIn;
-        private bool initialized;
-        private int fail;
-        private int sessionFail;
-        private int failUptime;
-        private int failHashrate;
-        //private Process process = new Process();
-        private bool miningPaused;
-
-        //private bool debug = true;
+        
         private HostControl host;
-        private bool connected;
-            //, connecting;
-        private int currentSession;
-        public static readonly object startLock = new object();
-        public static readonly object timeLock = new object();
-        //internal Timer minerTimer;
-
+        
         internal NamedPipeClient<IdleMessage> client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
         private Timer timer = new Timer(5000);
         private Timer sessionTimer = new Timer(60000);
@@ -108,7 +82,6 @@ namespace IdleService
         public bool Start(HostControl hc)
         {
             Utilities.Log("Start");
-            //Utilities.ScheduleWakeUP();
             host = hc;
 
             if (!initialized)
