@@ -84,7 +84,7 @@ namespace IdleService
             Utilities.Log("Start");
             host = hc;
 
-            if (!initialized)
+            if (!Config.serviceInitialized)
             {
                 Utilities.Log("isSys: " + Utilities.IsSystem() + " - " + Environment.UserName);
                 SystemEvents.PowerModeChanged += OnPowerChange;
@@ -96,23 +96,23 @@ namespace IdleService
 
             try
             {
-                Utilities.KillProcess(sessionExeName);
-                Utilities.KillProcess(minerExeName);
+                //Utilities.KillProcess(sessionExeName);
+                //Utilities.KillProcess(minerExeName);
             }
             catch (Exception ex)
             {
                 Utilities.Log(ex.Message);
             }
 
-            connected = false;
+            Config.isPipeConnected = false;
             timer.Start();
             sessionTimer.Start();
             apiCheckTimer.Start();
             
             client.Start();
-            currentSession = ProcessExtensions.GetSession();
+            Config.currentSessionId = ProcessExtensions.GetSession();
 
-            CheckForSystem(currentSession);
+            Utilities.CheckForSystem(Config.currentSessionId);
 
             Utilities.Log("Service running");
             return true;
@@ -127,11 +127,11 @@ namespace IdleService
             apiCheckTimer.Stop();
             client.Stop();
             //pipeTimer.Stop();
-            running = false;
+            Config.isCurrentlyMining = false;
 
             Utilities.AllowSleep();
-            Utilities.KillProcess(minerExeName);
-            Utilities.KillProcess(sessionExeName);
+            Utilities.KillProcess("");
+            Utilities.KillProcess("");
             Utilities.Log("Stopped!");
         }
 
@@ -145,14 +145,14 @@ namespace IdleService
         private void OnServerDisconnect(NamedPipeConnection<IdleMessage, IdleMessage> connection)
         {
             Utilities.Log("IdleService Pipe disconnected");
-            connected = false;
+            Config.isPipeConnected = false;
             //pipeTimer.Start();
         }
 
         private void OnError(Exception exception)
         {
             Utilities.Log("IdleService Pipe Err: " + exception.Message);
-            connected = false;
+            Config.isPipeConnected = false;
 
             client.Stop();
             client.Start();
@@ -162,15 +162,15 @@ namespace IdleService
 
         private void OnServerMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
         {
-            sessionFail = 0;
-            connected = true;
+            Config.sessionLaunchAttempts = 0;
+            Config.isPipeConnected = true;
             switch (message.request)
             {
                 case ((int)PacketID.idle):
                     Utilities.Log("Idle received from " + message.Id + ": " + message.isIdle);
 
-                    if (isLoggedIn)
-                        isIdle = message.isIdle;
+                    if (Config.isUserLoggedIn)
+                        Config.isUserIdle = message.isIdle;
 
                     /*
                     connection.PushMessage(new IdleMessage
@@ -196,7 +196,7 @@ namespace IdleService
                 case ((int)PacketID.hello):
                     //pipeTimer.Stop();
                     Utilities.Log("idleMon user " + message.data + " connected " + message.Id);
-                    isIdle = message.isIdle;
+                    Config.isUserIdle = message.isIdle;
                     break;
 
                 default:
@@ -208,51 +208,53 @@ namespace IdleService
         
         public void SessionChanged(SessionChangedArguments args)
         {
-            Utilities.KillProcess(sessionExeName);
+            //todo Put this somewhere better
+            Utilities.KillProcess("");
+
             switch (args.ReasonCode)
             {
                 case Topshelf.SessionChangeReasonCode.SessionLock:
                     Utilities.Log(string.Format("Session: {0} - Reason: {1} - Lock", args.SessionId, args.ReasonCode));
-                    isLoggedIn = false;
-                    currentSession = args.SessionId;
-                    isIdle = true;
+                    Config.isUserLoggedIn = false;
+                    Config.currentSessionId = args.SessionId;
+                    Config.isUserIdle = true;
                     break;
 
                 case Topshelf.SessionChangeReasonCode.SessionLogoff:
-                    isLoggedIn = false;
+                    Config.isUserLoggedIn = false;
                     Utilities.Log(string.Format("Session: {0} - Reason: {1} - Logoff", args.SessionId, args.ReasonCode));
-                    currentSession = 0;
-                    isIdle = true;
+                    Config.currentSessionId = 0;
+                    Config.isUserIdle = true;
                     break;
 
                 case Topshelf.SessionChangeReasonCode.SessionUnlock:
-                    isLoggedIn = true;
+                    Config.isUserLoggedIn = true;
                     Utilities.Log(string.Format("Session: {0} - Reason: {1} - Unlock", args.SessionId, args.ReasonCode));
-                    currentSession = args.SessionId;
-                    isIdle = false;
+                    Config.currentSessionId = args.SessionId;
+                    Config.isUserIdle = false;
                     break;
 
                 case Topshelf.SessionChangeReasonCode.SessionLogon:
-                    isLoggedIn = true;
+                    Config.isUserLoggedIn = true;
                     Utilities.Log(string.Format("Session: {0} - Reason: {1} - Login", args.SessionId, args.ReasonCode));
-                    currentSession = args.SessionId;
-                    isIdle = false;
+                    Config.currentSessionId = args.SessionId;
+                    Config.isUserIdle = false;
                     break;
 
                 case Topshelf.SessionChangeReasonCode.RemoteDisconnect:
-                    isLoggedIn = false;
+                    Config.isUserLoggedIn = false;
                     Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteDisconnect", args.SessionId, args.ReasonCode));
-                    currentSession = ProcessExtensions.GetSession();
-                    if (currentSession > 0)
-                        isLoggedIn = true;
-                    isIdle = true;
+                    Config.currentSessionId = ProcessExtensions.GetSession();
+                    if (Config.currentSessionId > 0)
+                        Config.isUserLoggedIn = true;
+                    Config.isUserIdle = true;
                     break;
 
                 case Topshelf.SessionChangeReasonCode.RemoteConnect:
-                    isLoggedIn = true;
+                    Config.isUserLoggedIn = true;
                     Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteConnect", args.SessionId, args.ReasonCode));
-                    currentSession = ProcessExtensions.GetSession();
-                    isIdle = false;
+                    Config.currentSessionId = ProcessExtensions.GetSession();
+                    Config.isUserIdle = false;
                     break;
 
                 default:
@@ -304,20 +306,13 @@ namespace IdleService
             //apiCheckTimer.Start();
             //pipeTimer.Elapsed += OnPipeTimerEvent;
             
-            initialized = true;
+            Config.serviceInitialized = true;
 
             client = new NamedPipeClient<IdleMessage>(@"Global\BFXMRPIPE");
 
-
-        /*
-          // No longer necessary, as we are using an AppContext instead of just a Main, so it will keep running anyway.
-        while (true)
-        {
-            Thread.Sleep(1);
-        }
-        */
     }
         #region Old API Json reading section (not used)
+        /*
         private async Task<String> getTestObjects(string url)
         {
             var httpClient = new HttpClient();
@@ -337,7 +332,7 @@ namespace IdleService
 
             try
             {
-                if (running != true)
+                if (Config.isCurrentlyMining != true)
                     return;
 
                 XmrRoot test = JsonConvert.DeserializeObject<XmrRoot>(getTestObjects("http://127.0.0.1:16000/api.json").Result);
@@ -354,12 +349,12 @@ namespace IdleService
                 else
                     failUptime = 0;
 
-                /*
-                if (test.hashrate.total.Average() <= 5)
-                    failHashrate++;
-                else
-                    failHashrate = 0;
-                */
+                
+                //if (test.hashrate.total.Average() <= 5)
+                //    failHashrate++;
+                //else
+                //    failHashrate = 0;
+                
 
                 if (failUptime >= 5 || failHashrate >= 5)
                 {
@@ -376,42 +371,43 @@ namespace IdleService
                 Utilities.Log("api: " + ex.Message);
             }
         }
+        */
 #endregion
 
         #region Timers/Events
         private void OnSessionTimer(object sender, ElapsedEventArgs e)
         {
-            currentSession = ProcessExtensions.GetSession();
+            Config.currentSessionId = ProcessExtensions.GetSession();
 
-            CheckForSystem(currentSession);
+            Utilities.CheckForSystem(Config.currentSessionId);
 
             //Utilities.Log(string.Format("Session: {0} - isLoggedIn: {1} - connected: {2} - sessionFail: {3} - isIdle: {4}", currentSession, isLoggedIn, connected, sessionFail, isIdle));
 
-            if (sessionFail > 3)
+            if (Config.sessionLaunchAttempts > 3)
             {
                 Utilities.Log("sessionFail > 3");
                 host.Stop();
                 return;
             }
 
-            if (isLoggedIn && !connected)
+            if (Config.isUserLoggedIn && !Config.isPipeConnected)
             {
-                sessionFail++;
-                Utilities.KillProcess(sessionExeName);
-                ProcessExtensions.StartProcessAsCurrentUser(sessionExe, null, null, false);
-                Utilities.Log("Starting IdleMon in " + currentSession);
+                Config.sessionLaunchAttempts++;
+                Utilities.KillProcess("");
+                ProcessExtensions.StartProcessAsCurrentUser("", null, null, false);
+                Utilities.Log("Starting IdleMon in " + Config.currentSessionId);
             }
-            else if (!isLoggedIn && connected)
+            else if (!Config.isUserLoggedIn && Config.isPipeConnected)
             {
-                sessionFail = 0;
-                Utilities.KillProcess(sessionExeName);
+                Config.sessionLaunchAttempts = 0;
+                Utilities.KillProcess("");
             }
-            else if (!isLoggedIn)
+            else if (!Config.isUserLoggedIn)
             {
-                sessionFail = 0;
+                Config.sessionLaunchAttempts = 0;
                 
-                if (currentSession > 0)
-                    isLoggedIn = true;
+                if (Config.currentSessionId > 0)
+                    Config.isUserLoggedIn = true;
             }
         }
 
@@ -419,10 +415,10 @@ namespace IdleService
         {
 
             //Utilities.Log("CPU Usage: " + Utilities.GetCpuUsage().ToString() + "%");
-            lock (timeLock)
+            lock (Config.timeLock)
             {
                 //Utilities.Log(string.Format("OnTimedEvent. {0} - {1}", running, isIdle));
-                bool isRunning = Running(minerExeName);
+                bool isRunning = Utilities.IsProcessRunning("minerexename");
                 //Utilities.Log("1 " + isRunning + " " + minerExeName);
                 
 
@@ -431,7 +427,7 @@ namespace IdleService
                 //        Utilities.Log("process not responding.", "-nr");
 
                                 
-                if (fail > 5)
+                if (Config.minerLaunchAttempts > 5)
                 {
                     Utilities.Log("Fail >5");
                     Abort();
@@ -442,53 +438,53 @@ namespace IdleService
                     if (isRunning)
                     {
                         Utilities.Log("Battery level is not full");
-                        Utilities.KillProcess();
+                        Utilities.KillProcess("");
                     }
                     return;
                 }
                 
                //todo: Need to do a 60 second average of this, sometimes spikes happen and can cause
                //unnecessary opening/closing of the miner!
-                if ((Utilities.GetCpuUsage() > 97) && !idleMode && isRunning)
+                if ((Utilities.GetCpuUsage() > 97) && !Config.isUserIdle && isRunning)
                 {
                     //Utilities.Log("High CPU usage, bail..");
                     if (Utilities.GetCpuUsage() > 98)
-                        Utilities.KillProcess();
+                        Utilities.KillProcess("");
 
                     return;
                 }
                 
-                if (running && !isRunning)
+                if (Config.isCurrentlyMining && !isRunning)
                 {
                     //it should be running, but isn't.
                     Utilities.Log("Restarting m..");
-                    StartMiner(!idleMode);
-                    fail++;
+                    StartMiner(!Config.isUserIdle);
+                    Config.minerLaunchAttempts++;
                     return;
                 }
 
-                if (!running && !isRunning)
+                if (!Config.isCurrentlyMining && !isRunning)
                 {
                     Utilities.Log("Not running!");
                     StartMiner(true);
-                    fail++;
+                    Config.minerLaunchAttempts++;
                     return;
                 }
                 
-                if (isRunning && !running)
+                if (isRunning && !Config.isCurrentlyMining)
                 {
-                    running = true;
+                    Config.isCurrentlyMining = true;
                     return;
                 }
 
-                fail = 0;
+                Config.minerLaunchAttempts = 0;
                 
-                if (isIdle)
+                if (Config.isUserIdle)
                 {
-                    if (!idleMode)
+                    if (!Config.isIdleMining)
                     {
                         //Utilities.Log("Changing status: idle.");
-                        Utilities.KillProcess();
+                        Utilities.KillProcess("");
                         if (Utilities.IsBatteryFull())
                         {
                             StartMiner(false);
@@ -496,7 +492,7 @@ namespace IdleService
                         else
                         {
                             StartMiner(true);
-                            idleMode = true;
+                            Config.isIdleMining = true;
                         }
                         return;
                     }
@@ -507,12 +503,12 @@ namespace IdleService
                 }
                 else
                 {
-                    if (idleMode)
+                    if (Config.isIdleMining)
                     {
                         //Utilities.Log("Changing status: not idle. Low power config running.");
-                        Utilities.KillProcess();
+                        Utilities.KillProcess("");
                         StartMiner(true);
-                        idleMode = false;
+                        Config.isIdleMining = false;
                         return;
                     }
                     else
@@ -527,18 +523,18 @@ namespace IdleService
         public void StartMiner(bool lowCpu)
         {
 
-            lock (startLock)
+            lock (Config.startLock)
             {
-                int pid;
+                int pid = 0;
 
                 //Utilities.Log("StartM..");
 
-                if (!File.Exists(minerExe))
+                if (!File.Exists(""))
                 {
-                    Utilities.Log(minerExe + " doesn't exist");
+                    Utilities.Log("" + " doesn't exist");
                     Abort();
                 }
-                if (Running(minerExeName))
+                if (Utilities.IsProcessRunning(""))
                 {
                     Utilities.Log("Already running, but startm?");
                     return;
@@ -552,7 +548,7 @@ namespace IdleService
                         //todo: Launch all miners in LOW CPU MODE from list
                         //pid = LaunchProcess(minerExe, lowCpuConfig);
                         //Utilities.Log("Started lowcpu mining: " + pid);
-                        idleMode = false;
+                        Config.isIdleMining = false;
                     }
                     else
                     {
@@ -560,13 +556,13 @@ namespace IdleService
                         //todo: Launch all miners from IDLE CPU MODE (High speed mode) from list
                         
                         //Utilities.Log("Started idlecpu mining: " + pid);
-                        idleMode = true;
+                        Config.isIdleMining = true;
                     }
 
                     //Sets whether the miner is running based on Process ID from the Launch method
-                    running = (pid > 0);
+                    Config.isCurrentlyMining = (pid > 0);
 
-                    Utilities.Log("IdleMode: " + idleMode + " - running: " + running);
+                    Utilities.Log("Config.isIdleMining: " + Config.isIdleMining + " - running: " + Config.isCurrentlyMining);
                 }
                 catch (Exception ex)
                 {
@@ -597,8 +593,8 @@ namespace IdleService
         {
             
             //todo: redo this section with config files; move this to Utilities class
-            sessionExe = Utilities.ApplicationPath() + "IdleMon.exe";
-            sessionExeName = Path.GetFileNameWithoutExtension(sessionExe);
+            //sessionExe = Utilities.ApplicationPath() + "IdleMon.exe";
+            //sessionExeName = Path.GetFileNameWithoutExtension(sessionExe);
             //minerExeName = Path.GetFileNameWithoutExtension(minerExe);
             //string args = string.Format("xmrig -o 127.0.0.1:9001 -u MONEROADDRESS.{0} -p x -k --safe --max-cpu-usage=90 -B --nicehash", System.Environment.MachineName);
             //string args = File.ReadAllText();
@@ -608,12 +604,13 @@ namespace IdleService
             //Utilities.Log(args);
             //Utilities.Log("bfdef complete");
 
-
-            if (!File.Exists(minerExe))
+            /*
+            if (!File.Exists(""))
             {
                 Utilities.Log("1");
                 Abort();
             }
+            */
             
         }
                 

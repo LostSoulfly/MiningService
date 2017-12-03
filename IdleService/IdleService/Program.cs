@@ -13,6 +13,10 @@ namespace IdleService
             //Load the configuration from a file, in the current directory
             Config.LoadConfigFromFile(Utilities.ApplicationPath() + "MinerService.json");
 
+
+
+            return;
+
             //Start the TopShelf library, and begin starting the actual Service
             ConfigureService.Configure();
         }

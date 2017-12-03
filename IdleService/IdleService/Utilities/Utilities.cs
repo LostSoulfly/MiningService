@@ -236,7 +236,7 @@ namespace IdleService
             //This checks who is currently logged into the active Windows Session (think Desktop user)
             if (Utilities.GetUsernameBySessionId(sessionId, false) == "SYSTEM")
             {
-                Utilities.KillProcess(sessionExeName);
+                Utilities.KillProcess("");
                 Config.isUserLoggedIn = false;
                 Config.isPipeConnected = false;
                 Config.isUserIdle = true;
