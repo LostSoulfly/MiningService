@@ -3,14 +3,18 @@ TopShelf service and userland idle monitor for easy crypto mining
 
 Comprised of two separate programs.
 
+
 * IdleService
+
 Runs as a Windows Service, and starts user-defined (crypto ideally, but anything, really) programs in the SYSTEM user's context.
 This allows us easy access to large pages (necessary for fast CPU mining with Monero), as well as easily hiding the mining software from display.
 If no logged in user is found, it will launch the user-defined software for the appropriate condition.
 
 * IdleMon
+
 Runs in the current logged in user's Desktop environment, automatically started by the IdleService using CreateProcessAsUser.
 IdleMon starts a NamedPipe server which IdleService connects to and, using that pipe, tells the service whether the user is idle or if the user chooses, through a task tray icon, to pause mining.
+
 
 Current todo list
 - [ ] Make project compilable
