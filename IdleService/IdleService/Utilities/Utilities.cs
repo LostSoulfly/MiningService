@@ -14,8 +14,6 @@ namespace IdleService
     static class Utilities
     {
         #region Public variables
-        //todo: Actually use this debug bool for logging
-        public static bool debug = true;
         
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.0.6";
@@ -316,7 +314,7 @@ namespace IdleService
         {
             try
             {
-                if (debug)
+                if (Config.settings.enableDebug)
                     File.AppendAllText(ApplicationPath() + System.Environment.MachineName + extra + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
             }
             catch

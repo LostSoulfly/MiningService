@@ -28,8 +28,8 @@ namespace IdleService
         internal static bool configInitialized { get; private set; }
         internal static bool serviceInitialized { get; set; }
         internal static bool isMiningPaused { get; set; }
-        internal static int  currentSessionId { get; set; }
         internal static bool doesBatteryExist { get; set; }
+        internal static int  currentSessionId { get; set; }
 
         internal static int sessionLaunchAttempts { get; set; }
         internal static int minerLaunchAttempts { get; set; }
