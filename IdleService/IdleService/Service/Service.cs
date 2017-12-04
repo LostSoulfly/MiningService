@@ -292,9 +292,12 @@ namespace IdleService
             Utilities.Log("Starting IdleService.. Proc: " + Environment.ProcessorCount);
             
             SetupFiles();
-            
+
             if (Utilities.DoesBatteryExist())
+            {
+                Config.doesBatteryExist = true;
                 Utilities.Log("Battery found");
+            }    
                                     
             timer.Elapsed += OnTimedEvent;
             sessionTimer.Elapsed += OnSessionTimer;
@@ -433,7 +436,7 @@ namespace IdleService
                     Abort();
                 }
                 
-                if (Utilities.DoesBatteryExist() && !Utilities.IsBatteryFull())
+                if (Config.doesBatteryExist && !Utilities.IsBatteryFull())
                 {
                     if (isRunning)
                     {
