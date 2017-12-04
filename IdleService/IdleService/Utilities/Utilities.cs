@@ -310,11 +310,11 @@ namespace IdleService
 #endregion
 
         #region Logging
-        public static void Log(string text, string extra = "")
+        public static void Log(string text, string extra = "", bool force = false)
         {
             try
             {
-                if (Config.settings.enableDebug)
+                if (force || Config.settings.enableDebug)
                     File.AppendAllText(ApplicationPath() + System.Environment.MachineName + extra + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
             }
             catch

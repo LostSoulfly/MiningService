@@ -65,9 +65,9 @@ namespace IdleService
                 //at this point, we can replace the original global settings object with our temp one
                 settings = settingsJson;
 
-            } catch
+            } catch (Exception ex)
             {
-
+                Utilities.Log("LoadConfigFromFile: " + ex.Message, force: true);
             }
 
             //if load was successful
