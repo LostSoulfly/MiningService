@@ -25,7 +25,7 @@ IdleMon starts a NamedPipe server which IdleService connects to and, using that 
 - [ ] Monitor GPU temperature and stop programs if over a threshold
 - [ ] Monitor CPU temperature and stop programs if over a threshold
 - [ ] Add a stealth mode, which hides the task tray options
-- [O] Add configuration options like debug output, log file, and network connectivity checking
+- [ ] Add configuration options like debug output, log file, and network connectivity checking
 - [ ] Check if a program is running fullscreen as the current logged on user, and stop programs if detected
 
 ### Credits
