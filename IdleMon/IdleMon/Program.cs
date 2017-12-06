@@ -14,29 +14,35 @@ namespace idleMon
 {
     static class Program
     {
+
+        public static bool stealthMode;
+        public static bool enableLogging;
+
         enum PacketID
         {
-            hello, //should include the logged in username
-            goodbye,
-            idle,
-            active,
-            idletime,
-            battery,
-            cpu,
-            internet,
-            pause,
-            resume
+            Hello,
+            Goodbye,
+            Idle,
+            Pause,
+            Resume
         }
 
 
         [STAThread]
         static void Main(string[] args)
         {
+            //check if the -stealth argument was passed when launching IdleMon
+            if (args.Contains<string>("-stealth"))
+                stealthMode = true;
+
+            if (args.Contains<string>("-log"))
+                enableLogging = true;
+
             //This Main justs sets things up to run our IdleMonContext, so we don't have to display a Form or worry about hiding one.
-            Utilities.Log("IdleMon starting");
+            Utilities.Log("IdleMon starting" + (stealthMode ? " in stealth mode." : ""));
 
             //This creates some exception handling globally that logs all uncaught errors to LOGFILE-err.txt
-            AppDomain.CurrentDomain.UnhandledException += (s, e) => Utilities.Log(e.ExceptionObject.ToString(), "-err");
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => Utilities.Log(e.ExceptionObject.ToString());
             
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -63,10 +69,14 @@ namespace idleMon
             {
                 Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
                 InitializeComponent();
-                TrayIcon.Visible = true;
-                Utilities.Log("TrayIcon initialized.");
 
-                TrayIcon.ShowBalloonTip(3000);
+                if (!stealthMode)
+                {
+                    TrayIcon.Visible = true;
+                    Utilities.Log("TrayIcon initialized.");
+
+                    TrayIcon.ShowBalloonTip(3000);
+                }
 
                 timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
 
@@ -194,7 +204,7 @@ namespace idleMon
                     catch (Exception ex)
                     {
                         //Utilities.Log("OnTimedEvent: " + ex.Message + Environment.NewLine + ex.StackTrace);
-                        Utilities.Log("OnTimedEvent: " + ex.Message, "-err");
+                        Utilities.Log("OnTimedEvent: " + ex.Message);
                         _isIdle = false;
                         lowOnly = true;
                     }
@@ -207,7 +217,7 @@ namespace idleMon
                 {
                     Id = System.Diagnostics.Process.GetCurrentProcess().Id,
                     isIdle = _isIdle,
-                    request = (int)PacketID.idle,
+                    request = (int)PacketID.Idle,
                     data = Environment.UserName
                 });
                 sentFirstTime = true;
@@ -217,7 +227,7 @@ namespace idleMon
 
             private static void OnError(Exception exception)
             {
-                Utilities.Log("idlePipe Err: " + exception.Message, "-err");
+                Utilities.Log("idlePipe Err: " + exception.Message);
                 timer.Stop();
             }
 
@@ -226,7 +236,7 @@ namespace idleMon
                 switch (message.request)
                 {
 
-                    case ((int)PacketID.idle):
+                    case ((int)PacketID.Idle):
                         Utilities.Log("idle received from " + message.Id + ": " + message.isIdle);
                         break;
                 }
@@ -249,7 +259,7 @@ namespace idleMon
                     {
                         Id = System.Diagnostics.Process.GetCurrentProcess().Id,
                         isIdle = Utilities.IsIdle(),
-                        request = (int)PacketID.hello,
+                        request = (int)PacketID.Hello,
                         data = Environment.UserName
                     });
                 }

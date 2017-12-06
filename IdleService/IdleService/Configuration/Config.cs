@@ -25,6 +25,7 @@ namespace IdleService
         internal static bool isMiningPaused { get; set; }
         internal static bool doesBatteryExist { get; set; }
         internal static int  currentSessionId { get; set; }
+        internal static int  skipTimerCycles { get; set; }
 
         internal static int sessionLaunchAttempts { get; set; }
 

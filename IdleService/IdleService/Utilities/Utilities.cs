@@ -17,6 +17,7 @@ namespace IdleService
         
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.0.6";
+        
 #endregion
 
         #region DLLImports and enums (ThreadExecutionState, WTSQuerySession)
@@ -134,6 +135,16 @@ namespace IdleService
             return true;
         }
 
+        public static bool IsProcessRunning(MinerList miner)
+        {
+            Process[] proc = Process.GetProcessesByName(miner.executable);
+
+            if (proc.Length == 0)
+                return false;
+            
+            return true;
+        }
+
         public static bool AreMinersRunning(List<MinerList> miners)
         {
             bool minerNotRunning = false;
@@ -166,6 +177,15 @@ namespace IdleService
         //This one accepts a MinerList as the passed argument, and uses the Executable and Arguments of that particular miner.
         public static int LaunchProcess(MinerList miner)
         {
+
+            if (miner.minerDisabled)
+                return 0;
+
+            string arguments = Config.isUserIdle ? miner.idleArguments : miner.activeArguments;
+
+            if (arguments.Length == 0)
+                return 0;
+
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.RedirectStandardOutput = false;
             psi.RedirectStandardError = false;
@@ -174,8 +194,51 @@ namespace IdleService
             Process proc = new Process();
             proc.StartInfo = psi;
 
-            proc = Process.Start(miner.executable, miner.arguments);
+            proc = Process.Start(miner.executable, arguments);
+            miner.launchAttempts++;
             return proc.Id;
+        }
+
+        public static bool LaunchMiners(List<MinerList> minerList)
+        {
+            bool launchIssues = false;
+            bool isRunning = false;
+            
+            foreach (var miner in minerList)
+            {
+                isRunning = IsProcessRunning(miner);
+                if (miner.shouldMinerBeRunning && !isRunning && miner.launchAttempts <= 4)
+                {
+                    if (LaunchProcess(miner) <= 0)  //returns PID
+                    {
+                        Utilities.Log("LaunchMiners: Unable to launch " + miner.executable + " " + (Config.isUserIdle ? miner.idleArguments : miner.activeArguments));
+                        launchIssues = true;
+                    }
+                    miner.shouldMinerBeRunning = true;
+
+                } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
+                {
+                    miner.launchAttempts = 0;
+                } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts > 4)
+                {
+                    miner.minerDisabled = true;
+                }
+            }
+            
+            return !launchIssues;
+        }
+
+        public static bool LaunchMiners()
+        {
+            bool launchIssues = false;
+
+            launchIssues = LaunchMiners(Config.settings.cpuMiners);
+
+            if (!LaunchMiners(Config.settings.cpuMiners))
+                launchIssues = true;
+
+            Config.isCurrentlyMining = true;
+            return !launchIssues;
         }
 
         public static void KillMiners()
@@ -186,7 +249,11 @@ namespace IdleService
             {
                 foreach (var miner in Config.settings.cpuMiners)
                 {
-                    KillProcess(miner.executable);
+                    if (miner.shouldMinerBeRunning)
+                    {
+                        KillProcess(miner.executable);
+                        miner.shouldMinerBeRunning = false;
+                    }
                 }
             }
 
@@ -195,7 +262,11 @@ namespace IdleService
             {
                 foreach (var miner in Config.settings.gpuMiners)
                 {
-                    KillProcess(miner.executable);
+                    if (miner.shouldMinerBeRunning)
+                    {
+                        KillProcess(miner.executable);
+                        miner.shouldMinerBeRunning = false;
+                    }
                 }
             }
 
@@ -276,7 +347,8 @@ namespace IdleService
             //This checks who is currently logged into the active Windows Session (think Desktop user)
             if (Utilities.GetUsernameBySessionId(sessionId, false) == "SYSTEM")
             {
-                Utilities.KillProcess("");
+                KillMiners();
+                KillProcess(Config.idleMonExecutable);
                 Config.isUserLoggedIn = false;
                 Config.isPipeConnected = false;
                 Config.isUserIdle = true;
@@ -352,12 +424,12 @@ namespace IdleService
 #endregion
 
         #region Logging
-        public static void Log(string text, string extra = "", bool force = false)
+        public static void Log(string text, bool force = false)
         {
             try
             {
                 if (force || Config.settings.enableDebug)
-                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + extra + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
+                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
             }
             catch
             {

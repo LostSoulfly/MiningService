@@ -22,16 +22,11 @@ namespace IdleService
 
         enum PacketID
         {
-            hello, //should include the logged in username
-            goodbye,
-            idle,
-            active,
-            idletime,
-            battery,
-            cpu,
-            internet,
-            pause,
-            resume
+            Hello,
+            Goodbye,
+            Idle,
+            Pause,
+            Resume
         }
 
         #region Json API for XMR-STAK-CPU only
@@ -74,7 +69,7 @@ namespace IdleService
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
         internal NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-        private Timer timer = new Timer(5000);
+        private Timer minerTimer = new Timer(10000);
         private Timer sessionTimer = new Timer(60000);
         private Timer apiCheckTimer = new Timer(10000);
         
@@ -83,6 +78,13 @@ namespace IdleService
         {
             Utilities.Log("Starting service");
             host = hc;
+
+            if (!Config.configInitialized)
+            {
+                Utilities.Log("Configuration not loaded; something went wrong!", force: true);
+                //host.Stop();
+                return false;
+            }
 
             if (!Config.serviceInitialized)
             {
@@ -105,7 +107,7 @@ namespace IdleService
             }
 
             Config.isPipeConnected = false;
-            timer.Start();
+            minerTimer.Start();
             sessionTimer.Start();
             apiCheckTimer.Start();
             
@@ -114,25 +116,25 @@ namespace IdleService
 
             Utilities.CheckForSystem(Config.currentSessionId);
 
-            Utilities.Log("Service running");
+            Utilities.Log("IdleService running.");
             return true;
         }
 
         public void Stop()
         {
-            // write code here that runs when the Windows Service stops. 
-            Utilities.Log("Stopping..");
-            timer.Stop();
+
+            Utilities.Log("Stopping IdleService..");
+            minerTimer.Stop();
             sessionTimer.Stop();
             apiCheckTimer.Stop();
             client.Stop();
-            //pipeTimer.Stop();
+
             Config.isCurrentlyMining = false;
 
             Utilities.AllowSleep();
-            Utilities.KillProcess("");
-            Utilities.KillProcess("");
-            Utilities.Log("Stopped!");
+            Utilities.KillMiners();
+            Utilities.KillProcess(Config.idleMonExecutable);
+            Utilities.Log("Successfully stopped IdleService.");
         }
 
         public void Abort()
@@ -144,19 +146,17 @@ namespace IdleService
         {
 
             Utilities.Log("Initializing IdleService.. CPU Cores: " + Environment.ProcessorCount);
-
-            SetupFiles();
-
+            
             if (Utilities.DoesBatteryExist())
             {
                 Config.doesBatteryExist = true;
-                Utilities.Log("Battery found");
+                Utilities.Log("Battery found.");
             }
 
-            timer.Elapsed += OnTimedEvent;
+            minerTimer.Elapsed += OnMinerTimerEvent;
             sessionTimer.Elapsed += OnSessionTimer;
 
-            timer.AutoReset = true;
+            minerTimer.AutoReset = true;
 
             Config.serviceInitialized = true;
 
@@ -189,13 +189,15 @@ namespace IdleService
             Config.isPipeConnected = true;
             switch (message.request)
             {
-                case ((int)PacketID.idle):
+                case ((int)PacketID.Idle):
                     Utilities.Log("Idle received from " + message.Id + ": " + message.isIdle);
 
                     if (Config.isUserLoggedIn)
                         Config.isUserIdle = message.isIdle;
 
                     /*
+                     * Potentially allow launching miners in the user's desktop session
+                     * instead of launching in SYSTEM context with a pipe message
                     connection.PushMessage(new IdleMessage
                     {
                         Id = System.Diagnostics.Process.GetCurrentProcess().Id,
@@ -206,17 +208,17 @@ namespace IdleService
 
                     break;
 
-                case ((int)PacketID.pause):
-
-                    //pause mining until logoff or resumed manually
+                case ((int)PacketID.Pause):
+                    Config.isMiningPaused = true;
+                    Utilities.KillMiners();
                     break;
 
-                case ((int)PacketID.resume):
-
+                case ((int)PacketID.Resume):
+                    Config.isMiningPaused = false;
                     //resume mining
                     break;                    
 
-                case ((int)PacketID.hello):
+                case ((int)PacketID.Hello):
                     Utilities.Log("idleMon user " + message.data + " connected " + message.Id);
                     Config.isUserIdle = message.isIdle;
                     break;
@@ -376,13 +378,15 @@ namespace IdleService
         {
             Config.currentSessionId = ProcessExtensions.GetSession();
 
+            Utilities.Log("OnSessionTimer: SessionID " + Config.currentSessionId);
+
             Utilities.CheckForSystem(Config.currentSessionId);
 
             //Utilities.Log(string.Format("Session: {0} - isLoggedIn: {1} - connected: {2} - sessionFail: {3} - isIdle: {4}", currentSession, isLoggedIn, connected, sessionFail, isIdle));
 
-            if (Config.sessionLaunchAttempts > 3)
+            if (Config.sessionLaunchAttempts > 4)
             {
-                Utilities.Log("sessionFail > 3");
+                Utilities.Log("Unable to start IdleMon in user session; stopping service.", force: true);
                 host.Stop();
                 return;
             }
@@ -390,14 +394,19 @@ namespace IdleService
             if (Config.isUserLoggedIn && !Config.isPipeConnected)
             {
                 Config.sessionLaunchAttempts++;
-                Utilities.KillProcess("");
-                ProcessExtensions.StartProcessAsCurrentUser("", null, null, false);
-                Utilities.Log("Starting IdleMon in " + Config.currentSessionId);
+                Utilities.KillProcess(Config.idleMonExecutable);
+
+                string args = Config.settings.stealthMode ? "-stealth" : "";
+                args += Config.settings.enableLogging ? "-log" : "";
+
+                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, args, null, false);
+                Utilities.Log("Attempting to start IdleMon in " + Config.currentSessionId);
+                return;
             }
             else if (!Config.isUserLoggedIn && Config.isPipeConnected)
             {
                 Config.sessionLaunchAttempts = 0;
-                Utilities.KillProcess("");
+                Utilities.KillProcess(Config.idleMonExecutable);
             }
             else if (!Config.isUserLoggedIn)
             {
@@ -408,104 +417,61 @@ namespace IdleService
             }
         }
 
-        private void OnTimedEvent(object sender, ElapsedEventArgs e)
+        private void OnMinerTimerEvent(object sender, ElapsedEventArgs e)
         {
             
             lock (Config.timeLock)
             {
-                //todo: Basically rewrite this whole mess.
+                
+                if (Config.skipTimerCycles > 0)
+                {
+                    Config.skipTimerCycles--;
+                    return;
+                }
+
+                if (Config.isMiningPaused)
+                    return;
+
+                //If not idle, and currently mining
+                if ((!Config.isUserIdle && Config.isCurrentlyMining))
+                {   
+                    //If our CPU threshold is over 0, and CPU usage is over that, then stop mining and skip the next 6 timer cycles
+                    if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Utilities.GetCpuUsage() > Config.settings.cpuUsageThresholdWhileNotIdle))
+                    {
+                        Utilities.KillMiners();
+                        Config.skipTimerCycles = 6;
+                        return;
+                    }
+                }
+
+                if (Config.doesBatteryExist && !Utilities.IsBatteryFull())
+                {
+                    if (Config.isCurrentlyMining)
+                    {
+                        Utilities.Log("Battery level is not full; stop mining..");
+                        Utilities.KillMiners();
+                    }
+                    // regardless if we're mining, we can exit this method as we don't want to start mining now
+                    return;
+                }
+
+                //check if resumePausedMiningAfterMinutes has passed, eventually..
+
                 bool cpuMinersRunning = Utilities.AreMinersRunning(Config.settings.cpuMiners);
                 bool gpuMinersRunning = Utilities.AreMinersRunning(Config.settings.gpuMiners);
 
-                if (Config.minerLaunchAttempts > 5)
-                {
-                    Utilities.Log("Failure to start >5");
-                    Abort();
-                }
-                
-                if (Config.doesBatteryExist && !Utilities.IsBatteryFull())
-                {
-                    if (isRunning)
-                    {
-                        Utilities.Log("Battery level is not full");
-                        Utilities.KillProcess("");
-                    }
-                    return;
-                }
-                
-               //todo: Need to do a 60 second average of this, sometimes spikes happen and can cause
-               //unnecessary opening/closing of the miner!
-                if ((Utilities.GetCpuUsage() > 97) && !Config.isUserIdle && isRunning)
-                {
-                    //Utilities.Log("High CPU usage, bail..");
-                    if (Utilities.GetCpuUsage() > 98)
-                        Utilities.KillProcess("");
+                if (!cpuMinersRunning)
+                    Utilities.LaunchMiners(Config.settings.cpuMiners);
 
-                    return;
-                }
+                if (!cpuMinersRunning)
+                    Utilities.LaunchMiners(Config.settings.gpuMiners);
                 
-                if (Config.isCurrentlyMining && !isRunning)
-                {
-                    //it should be running, but isn't.
-                    Utilities.Log("Restarting m..");
-                    StartMiner(!Config.isUserIdle);
-                    Config.minerLaunchAttempts++;
-                    return;
-                }
+                //Check cpu/gpu miners running, if not all running, start the ones that aren't running
 
-                if (!Config.isCurrentlyMining && !isRunning)
-                {
-                    Utilities.Log("Not running!");
-                    StartMiner(true);
-                    Config.minerLaunchAttempts++;
-                    return;
-                }
-                
-                if (isRunning && !Config.isCurrentlyMining)
-                {
-                    Config.isCurrentlyMining = true;
-                    return;
-                }
+                //Prevent sleep
 
-                Config.minerLaunchAttempts = 0;
-                
-                if (Config.isUserIdle)
-                {
-                    if (!Config.isIdleMining)
-                    {
-                        //Utilities.Log("Changing status: idle.");
-                        Utilities.KillProcess("");
-                        if (Utilities.IsBatteryFull())
-                        {
-                            StartMiner(false);
-                        }
-                        else
-                        {
-                            StartMiner(true);
-                            Config.isIdleMining = true;
-                        }
-                        return;
-                    }
-                    else
-                    {
-                        //Utilities.Log("Not changing status.1");
-                    }
-                }
-                else
-                {
-                    if (Config.isIdleMining)
-                    {
-                        //Utilities.Log("Changing status: not idle. Low power config running.");
-                        Utilities.KillProcess("");
-                        StartMiner(true);
-                        Config.isIdleMining = false;
-                        return;
-                    }
-                    else
-                    {
-                        //Utilities.Log("Not changing status.2");
-                    }
-                }
+                //check cpu/gpu temps
+
             }
         }
 #endregion
@@ -571,38 +537,6 @@ namespace IdleService
             //Run an external batch file to clean up the miner and remove all traces of it
             //todo: this, and move to Utilities
         }
-        
-        //todo:
-        //rewrite this to read mining programs from two files, low cpu and idle cpu.
-        //Have each line be a complete program w/ args
-        //store these in a list, one for low/idle cpu configs
-        //when launching or stopping mining, loop through all the list items to start/stop them.
-        //Check for CPU temperature and potentially throttle down
-        //Change to LoadFiles or something
-        public void SetupFiles()
-        {
-            
-            //todo: redo this section with config files; move this to Utilities class
-            //sessionExe = Utilities.ApplicationPath() + "IdleMon.exe";
-            //sessionExeName = Path.GetFileNameWithoutExtension(sessionExe);
-            //minerExeName = Path.GetFileNameWithoutExtension(minerExe);
-            //string args = string.Format("xmrig -o 127.0.0.1:9001 -u MONEROADDRESS.{0} -p x -k --safe --max-cpu-usage=90 -B --nicehash", System.Environment.MachineName);
-            //string args = File.ReadAllText();
-            //idleConfig = args;
-
-            //lowCpuConfig = string.Format("xmrig -o 127.0.0.1:9001 -u MONEROADDRESS.{0} -p x -k --max-cpu-usage=25 -B --nicehash", System.Environment.MachineName);
-            //Utilities.Log(args);
-            //Utilities.Log("bfdef complete");
-
-            /*
-            if (!File.Exists(""))
-            {
-                Utilities.Log("1");
-                Abort();
-            }
-            */
-            
-        }
-                
+                        
     }
 }

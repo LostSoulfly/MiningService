@@ -9,15 +9,19 @@ namespace IdleService
     public class MinerList
     {
 
-        public MinerList(string executable, string arguments)
+        public MinerList(string executable, string idleArguments, string activeArguments)
         {
             this.executable = executable;
-            this.arguments = arguments;
+            this.idleArguments = idleArguments;
+            this.activeArguments = activeArguments;
         }
 
         public string executable { get; set; }
-        public string arguments { get; set; }
+        public string idleArguments { get; set; }
+        public string activeArguments { get; set; }
         internal int launchAttempts { get; set; }
+        internal bool minerDisabled { get; set; }
         internal bool shouldMinerBeRunning { get; set; }
+        internal bool isMiningIdleSpeed { get; set; }
     }
 }

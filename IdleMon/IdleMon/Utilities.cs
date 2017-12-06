@@ -74,12 +74,15 @@ namespace idleMon
 
         }
 
-        public static void Log(string text, string extra = "")
+        public static void Log(string text)
         {
+            if (!Program.enableLogging)
+                return;
+
             try
             {
-                
-                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + extra + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
+                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString()
+                        + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
             }
             catch
             {
