@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration\Config.cs" />
+    <Compile Include="Configuration\MinerList.cs" />
     <Compile Include="Configuration\Settings.cs" />
     <Compile Include="Service\ConfigureService.cs" />
     <Compile Include="Pipes\IdleMessage.cs" />

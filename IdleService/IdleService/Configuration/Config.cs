@@ -10,14 +10,9 @@ namespace IdleService
 {
     static class Config
     {
-        public static bool useBuiltInSessionEXE = false;
-
         //Settings class instance for de/serialization
         public static Settings settings;
-
-        internal static List<string> cpuMiners { get; private set; }
-        internal static List<string> gpuMiners { get; private set; }
-        internal static string idleMonFileName { get; private set; }
+        public static string idleMonExecutable = "IdleMon.exe";
 
         //Global variables used in different classes
         internal static bool isUserIdle { get; set; }
@@ -32,7 +27,6 @@ namespace IdleService
         internal static int  currentSessionId { get; set; }
 
         internal static int sessionLaunchAttempts { get; set; }
-        internal static int minerLaunchAttempts { get; set; }
 
         //Hashrate monitoring
         /*
@@ -104,10 +98,58 @@ namespace IdleService
         private static Settings VerifySettings(Settings settingsJson)
         {
             //verify we don't have any negative numbers, numbers that are lower or higher than safe values, or empty strings (like the url, but only need to check if verifyNetwork is true).
+            if (settings.maxCpuTemp > 90 || settings.maxCpuTemp < 0)
+                settings.maxCpuTemp = 70;
+
+            if (settings.maxGpuTemp > 100 || settings.maxGpuTemp < 0)
+                settings.maxGpuTemp = 70;
+
+            if (settings.minutesUntilIdle > 3600 || settings.minutesUntilIdle < 3)
+                settings.minutesUntilIdle = 10;
+
+            if (settings.cpuUsageThresholdWhileNotIdle > 100 || settings.cpuUsageThresholdWhileNotIdle < 0)
+                settings.cpuUsageThresholdWhileNotIdle = 80;
+
+            if (settings.resumePausedMiningAfterMinutes > 3600 || settings.resumePausedMiningAfterMinutes < 0)
+                settings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
+
+            if (settings.urlToCheckForNetwork.Length <= 0 && settings.verifyNetworkConnectivity)
+                settings.urlToCheckForNetwork = "http://beta.speedtest.net/";
+
+            if (!VerifyCpuMiners())
+                Utilities.Log("There is a problem with your CPU Miner configuration! Make sure there are no empty executables!");
+
+            if (!VerifyGpuMiners())
+                Utilities.Log("There is a problem with your GPU Miner configuration! Make sure there are no empty executables!");
 
             //return our verified settingsJson object
             return settingsJson;
         }
+        
+        private static bool VerifyCpuMiners()
+        {
+            foreach (var miner in Config.settings.cpuMiners)
+            {
+                if (miner.executable.Length == 0)
+                {
+                    return false;
+                }
+            }
 
+            return true;
+        }
+
+        private static bool VerifyGpuMiners()
+        {
+            foreach (var miner in Config.settings.gpuMiners)
+            {
+                if (miner.executable.Length == 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

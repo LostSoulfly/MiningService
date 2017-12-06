@@ -69,11 +69,11 @@ namespace IdleService
         }
         #endregion
 
-        //--------- Configuration ----------
-        
+        //TopShelf service controller
         private HostControl host;
-        
-        internal NamedPipeClient<IdleMessage> client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
+
+        //Pipe that is used to connect to the IdleMon running in the user's desktop session
+        internal NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
         private Timer timer = new Timer(5000);
         private Timer sessionTimer = new Timer(60000);
         private Timer apiCheckTimer = new Timer(10000);
@@ -81,7 +81,7 @@ namespace IdleService
         #region TopShelf Start/Stop/Abort
         public bool Start(HostControl hc)
         {
-            Utilities.Log("Start");
+            Utilities.Log("Starting service");
             host = hc;
 
             if (!Config.serviceInitialized)
@@ -139,6 +139,31 @@ namespace IdleService
         {
             host.Stop();
         }
+
+        private void Initialize()
+        {
+
+            Utilities.Log("Initializing IdleService.. CPU Cores: " + Environment.ProcessorCount);
+
+            SetupFiles();
+
+            if (Utilities.DoesBatteryExist())
+            {
+                Config.doesBatteryExist = true;
+                Utilities.Log("Battery found");
+            }
+
+            timer.Elapsed += OnTimedEvent;
+            sessionTimer.Elapsed += OnSessionTimer;
+
+            timer.AutoReset = true;
+
+            Config.serviceInitialized = true;
+
+            client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
+
+        }
+
         #endregion
 
         #region NamedPipe Events
@@ -146,7 +171,6 @@ namespace IdleService
         {
             Utilities.Log("IdleService Pipe disconnected");
             Config.isPipeConnected = false;
-            //pipeTimer.Start();
         }
 
         private void OnError(Exception exception)
@@ -156,8 +180,7 @@ namespace IdleService
 
             client.Stop();
             client.Start();
-
-            //pipeTimer.Start();
+            
         }
 
         private void OnServerMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
@@ -194,7 +217,6 @@ namespace IdleService
                     break;                    
 
                 case ((int)PacketID.hello):
-                    //pipeTimer.Stop();
                     Utilities.Log("idleMon user " + message.data + " connected " + message.Id);
                     Config.isUserIdle = message.isIdle;
                     break;
@@ -209,7 +231,7 @@ namespace IdleService
         public void SessionChanged(SessionChangedArguments args)
         {
             //todo Put this somewhere better
-            Utilities.KillProcess("");
+            Utilities.KillMiners();
 
             switch (args.ReasonCode)
             {
@@ -277,7 +299,7 @@ namespace IdleService
                     Stop();
                     break;
                 case PowerModes.StatusChange:
-                    //Utilities.Log("Power changed"); // ie. weak battery
+                    Utilities.Log("Power changed"); // ie. weak battery
                     break;
 
                 default:
@@ -286,34 +308,6 @@ namespace IdleService
             }
         }
         
-        private void Initialize()
-        {
-
-            Utilities.Log("Starting IdleService.. Proc: " + Environment.ProcessorCount);
-            
-            SetupFiles();
-
-            if (Utilities.DoesBatteryExist())
-            {
-                Config.doesBatteryExist = true;
-                Utilities.Log("Battery found");
-            }    
-                                    
-            timer.Elapsed += OnTimedEvent;
-            sessionTimer.Elapsed += OnSessionTimer;
-            //apiCheckTimer.Elapsed += OnApiTimer;
-            
-            timer.AutoReset = true;
-            //apiCheckTimer.AutoReset = true;
-
-            //apiCheckTimer.Start();
-            //pipeTimer.Elapsed += OnPipeTimerEvent;
-            
-            Config.serviceInitialized = true;
-
-            client = new NamedPipeClient<IdleMessage>(@"Global\BFXMRPIPE");
-
-    }
         #region Old API Json reading section (not used)
         /*
         private async Task<String> getTestObjects(string url)
@@ -416,23 +410,16 @@ namespace IdleService
 
         private void OnTimedEvent(object sender, ElapsedEventArgs e)
         {
-
-            //Utilities.Log("CPU Usage: " + Utilities.GetCpuUsage().ToString() + "%");
+            
             lock (Config.timeLock)
             {
-                //Utilities.Log(string.Format("OnTimedEvent. {0} - {1}", running, isIdle));
-                bool isRunning = Utilities.IsProcessRunning("minerexename");
-                //Utilities.Log("1 " + isRunning + " " + minerExeName);
-                
+                //todo: Basically rewrite this whole mess.
+                bool cpuMinersRunning = Utilities.AreMinersRunning(Config.settings.cpuMiners);
+                bool gpuMinersRunning = Utilities.AreMinersRunning(Config.settings.gpuMiners);
 
-                //if (isRunning && (object.ReferenceEquals(null, process) == false))
-                //    if (process.Responding == false)
-                //        Utilities.Log("process not responding.", "-nr");
-
-                                
                 if (Config.minerLaunchAttempts > 5)
                 {
-                    Utilities.Log("Fail >5");
+                    Utilities.Log("Failure to start >5");
                     Abort();
                 }
                 

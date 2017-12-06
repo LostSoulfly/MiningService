@@ -117,13 +117,9 @@ namespace IdleService
 
         #region Process utilities
 
-        public static bool IsProcessRunning(string process, bool excludeOwnID = false)
+        public static bool IsProcessRunning(string process)
         {
             Process[] proc = Process.GetProcessesByName(process);
-            
-            //int count = Process.GetProcessesByName(process).Length;
-            //if (minerExe.Length == 0)
-            //Utilities.Log(process + " not running..");
 
             if (proc.Length == 0)
                 return false;
@@ -131,16 +127,30 @@ namespace IdleService
             if (proc.Length > 1)
             {
                 Utilities.Log("More than one " + process);
-                Utilities.KillProcess(process, excludeOwnID);
-                if (!excludeOwnID) return false;
+                Utilities.KillProcess(process);
+                return false;
             }
 
             return true;
         }
 
+        public static bool AreMinersRunning(List<MinerList> miners)
+        {
+            bool minerNotRunning = false;
+
+            foreach (var miner in miners)
+            {
+                Process[] proc = Process.GetProcessesByName(miner.executable);
+
+                if (proc.Length == 0)
+                    minerNotRunning = true;
+            }
+
+            return minerNotRunning;
+        }
+
         public static int LaunchProcess(string exe, string args)
         {
-
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.RedirectStandardOutput = false;
             psi.RedirectStandardError = false;
@@ -153,42 +163,74 @@ namespace IdleService
             return proc.Id;
         }
 
-        public static void KillProcess(string proc, bool excludeOwnID = false)
+        //This one accepts a MinerList as the passed argument, and uses the Executable and Arguments of that particular miner.
+        public static int LaunchProcess(MinerList miner)
         {
-            //if (string.IsNullOrEmpty(proc)) proc = minerExeName;
-            int thisProcID = Process.GetCurrentProcess().Id;
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.RedirectStandardOutput = false;
+            psi.RedirectStandardError = false;
+            psi.UseShellExecute = false;
 
-            /*
-            if (proc == minerExeName)
+            Process proc = new Process();
+            proc.StartInfo = psi;
+
+            proc = Process.Start(miner.executable, miner.arguments);
+            return proc.Id;
+        }
+
+        public static void KillMiners()
+        {
+
+            //loop through the CPU miner list and kill all miners
+            if (Config.settings.mineWithCpu)
             {
-                running = false;
+                foreach (var miner in Config.settings.cpuMiners)
+                {
+                    KillProcess(miner.executable);
+                }
             }
-            */
+
+            //loop through the GPU miner list and kill all miners
+            if (Config.settings.mineWithGpu)
+            {
+                foreach (var miner in Config.settings.gpuMiners)
+                {
+                    KillProcess(miner.executable);
+                }
+            }
+
+            //we're no longer mining
+            Config.isCurrentlyMining = false;
+        }
+
+        public static bool KillProcess(string proc)
+        {
+            bool cantKillProcess = false;
 
             try
             {
                 foreach (Process p in Process.GetProcessesByName(proc))
                 {
-                    if (!excludeOwnID)
-                    {
-                        p.Kill();
-                        Utilities.Log(string.Format("Killed {0}.", proc));
-                    }
-                    else if (p.Id == thisProcID)
-                    {
-                        Utilities.Log(string.Format("ignoring this process"));
-                    }
-                    else
-                    {
-                        p.Kill();
-                        Utilities.Log(string.Format("Killed {0}.", proc));
-                    }
+                    p.Kill();
+                    p.WaitForExit(3000);    //wait a max of 3 seconds for the process to terminate
+
+                    if (!p.HasExited)
+                        cantKillProcess = true;
+
+                    Utilities.Log(string.Format("Killed {0}.", proc));
                 }
             }
             catch (Exception ex)
             {
                 Utilities.Log("KillProcess: " + ex.Message + '\n' + ex.Source);
+                return false;
             }
+
+            //if we can't kill one of the processes, we should return FALSE!
+            if (cantKillProcess) return false;
+
+            //otherwise, all processes were stopped, so return true
+            return true;
         }
         #endregion
 
