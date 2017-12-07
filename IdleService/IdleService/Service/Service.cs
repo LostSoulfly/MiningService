@@ -76,7 +76,7 @@ namespace IdleService
         #region TopShelf Start/Stop/Abort
         public bool Start(HostControl hc)
         {
-            Utilities.Log("Starting service");
+            Utilities.Log("Starting IdleService");
             host = hc;
 
             if (!Config.configInitialized)
@@ -86,37 +86,53 @@ namespace IdleService
                 return false;
             }
 
+            //These only need to be set up once, and this may get called again if the system
+            //wakes up from sleep, so we make sure it is only initialized once.
             if (!Config.serviceInitialized)
             {
-                Utilities.Log("isSys: " + Utilities.IsSystem() + " - " + Environment.UserName);
+                Utilities.Log("Initializing IdleService.. CPU Cores: " + Environment.ProcessorCount);
+
+                if (Utilities.DoesBatteryExist())
+                {
+                    Config.doesBatteryExist = true;
+                    Utilities.Log("Battery found. IsBatteryFull: " + Utilities.IsBatteryFull());
+                }
+
                 SystemEvents.PowerModeChanged += OnPowerChange;
-                Initialize();
+                minerTimer.Elapsed += OnMinerTimerEvent;
+                sessionTimer.Elapsed += OnSessionTimer;
+
+                minerTimer.AutoReset = true;
+
+                //setup the NamedPipeClient and events 
+                client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
                 client.ServerMessage += OnServerMessage;
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
+                
+                Utilities.Log("IdleService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
+                Config.serviceInitialized = true;
             }
 
-            try
-            {
-                //Utilities.KillProcess(sessionExeName);
-                //Utilities.KillProcess(minerExeName);
-            }
-            catch (Exception ex)
-            {
-                Utilities.Log(ex.Message);
-            }
+            //Kill and miners and IdleMons that may be running, just in case!
+            Utilities.KillMiners();
+            Utilities.KillProcess(Config.idleMonExecutable);
 
             Config.isPipeConnected = false;
             minerTimer.Start();
             sessionTimer.Start();
             apiCheckTimer.Start();
             
+            //start attempting to connect to IdleMon through a NamedPipe
             client.Start();
-            Config.currentSessionId = ProcessExtensions.GetSession();
 
+            if (Config.settings.preventSleep)
+                Utilities.PreventSleep();
+
+            Config.currentSessionId = ProcessExtensions.GetSession();
             Utilities.CheckForSystem(Config.currentSessionId);
 
-            Utilities.Log("IdleService running.");
+            Utilities.Log("IdleService is running");
             return true;
         }
 
@@ -131,7 +147,9 @@ namespace IdleService
 
             Config.isCurrentlyMining = false;
 
-            Utilities.AllowSleep();
+            if (Config.settings.preventSleep)
+                Utilities.AllowSleep();
+
             Utilities.KillMiners();
             Utilities.KillProcess(Config.idleMonExecutable);
             Utilities.Log("Successfully stopped IdleService.");
@@ -141,29 +159,7 @@ namespace IdleService
         {
             host.Stop();
         }
-
-        private void Initialize()
-        {
-
-            Utilities.Log("Initializing IdleService.. CPU Cores: " + Environment.ProcessorCount);
-            
-            if (Utilities.DoesBatteryExist())
-            {
-                Config.doesBatteryExist = true;
-                Utilities.Log("Battery found.");
-            }
-
-            minerTimer.Elapsed += OnMinerTimerEvent;
-            sessionTimer.Elapsed += OnSessionTimer;
-
-            minerTimer.AutoReset = true;
-
-            Config.serviceInitialized = true;
-
-            client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-
-        }
-
+        
         #endregion
 
         #region NamedPipe Events
@@ -211,15 +207,17 @@ namespace IdleService
                 case ((int)PacketID.Pause):
                     Config.isMiningPaused = true;
                     Utilities.KillMiners();
+                    Utilities.Log("Mining has been paused by IdleMon.");
                     break;
 
                 case ((int)PacketID.Resume):
                     Config.isMiningPaused = false;
+                    Utilities.Log("Mining has been resumed by IdleMon.");
                     //resume mining
                     break;                    
 
                 case ((int)PacketID.Hello):
-                    Utilities.Log("idleMon user " + message.data + " connected " + message.Id);
+                    Utilities.Log("idleMon user " + message.data + " connected. Session: " + message.Id);
                     Config.isUserIdle = message.isIdle;
                     break;
 
@@ -293,15 +291,17 @@ namespace IdleService
             switch (e.Mode)
             {
                 case PowerModes.Resume:
-                    Utilities.Log("Resuming");
+                    Utilities.Log("Resuming service");
                     Start(host);
                     break;
+
                 case PowerModes.Suspend:
-                    Utilities.Log("Suspending");
+                    Utilities.Log("Suspending service");
                     Stop();
                     break;
+
                 case PowerModes.StatusChange:
-                    Utilities.Log("Power changed"); // ie. weak battery
+                    Utilities.Log("Power changed: " + e.ToString()); // ie. weak battery
                     break;
 
                 default:
@@ -376,6 +376,10 @@ namespace IdleService
         #region Timers/Events
         private void OnSessionTimer(object sender, ElapsedEventArgs e)
         {
+
+            if (!Utilities.IsSystem())
+                return;
+
             Config.currentSessionId = ProcessExtensions.GetSession();
 
             Utilities.Log("OnSessionTimer: SessionID " + Config.currentSessionId);
@@ -475,68 +479,6 @@ namespace IdleService
             }
         }
 #endregion
-        
-        public void StartMiner(bool lowCpu)
-        {
-
-            lock (Config.startLock)
-            {
-                int pid = 0;
-
-                //Utilities.Log("StartM..");
-
-                if (!File.Exists(""))
-                {
-                    Utilities.Log("" + " doesn't exist");
-                    Abort();
-                }
-                if (Utilities.IsProcessRunning(""))
-                {
-                    Utilities.Log("Already running, but startm?");
-                    return;
-                }
-
-                try
-                {
-                    if (lowCpu)
-                    {
-
-                        //todo: Launch all miners in LOW CPU MODE from list
-                        //pid = LaunchProcess(minerExe, lowCpuConfig);
-                        //Utilities.Log("Started lowcpu mining: " + pid);
-                        Config.isIdleMining = false;
-                    }
-                    else
-                    {
-                        //var count = Environment.ProcessorCount;
-                        //todo: Launch all miners from IDLE CPU MODE (High speed mode) from list
-                        
-                        //Utilities.Log("Started idlecpu mining: " + pid);
-                        Config.isIdleMining = true;
-                    }
-
-                    //Sets whether the miner is running based on Process ID from the Launch method
-                    Config.isCurrentlyMining = (pid > 0);
-
-                    Utilities.Log("Config.isIdleMining: " + Config.isIdleMining + " - running: " + Config.isCurrentlyMining);
-                }
-                catch (Exception ex)
-                {
-                    Utilities.Log("cpu ex:" + ex.Message + Environment.NewLine + ex.StackTrace);
-                    
-                    if (ex.Message.Contains("platform"))
-                    {
-                        Abort();
-                    }
-                }
-            }
-        }
-        
-        public void Uninstall()
-        {
-            //Run an external batch file to clean up the miner and remove all traces of it
-            //todo: this, and move to Utilities
-        }
-                        
+                   
     }
 }

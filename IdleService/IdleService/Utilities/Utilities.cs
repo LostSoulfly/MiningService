@@ -382,8 +382,7 @@ namespace IdleService
         public static void PreventSleep()
         {
             //This sets the ThreadExecutionState to (attempt) to prevent the computer from sleeping
-            //todo: Allow or disallow this setting from a config file, same with AllowSleep.
-            //Log("PreventSleep");
+            //todo: This may need to be implemented into IdleMon instead of IdleService. Needs testing.
             SetThreadExecutionState(
               EXECUTION_STATE.ES_SYSTEM_REQUIRED |
               EXECUTION_STATE.ES_CONTINUOUS);
@@ -428,7 +427,7 @@ namespace IdleService
         {
             try
             {
-                if (force || Config.settings.enableDebug)
+                if (force || Config.settings.enableLogging)
                     File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
             }
             catch

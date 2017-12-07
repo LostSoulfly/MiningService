@@ -209,7 +209,6 @@ namespace IdleService
 
         public static int GetSession()
         {
-            var bResult = false;
             var hImpersonationToken = IntPtr.Zero;
             var activeSessionId = INVALID_SESSION_ID;
             var pSessionInfo = IntPtr.Zero;

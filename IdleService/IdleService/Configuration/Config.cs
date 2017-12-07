@@ -19,7 +19,6 @@ namespace IdleService
         internal static bool isUserLoggedIn { get; set; }
         internal static bool isPipeConnected { get; set; }
         internal static bool isCurrentlyMining { get; set; }
-        internal static bool isIdleMining { get; set; }
         internal static bool configInitialized { get; private set; }
         internal static bool serviceInitialized { get; set; }
         internal static bool isMiningPaused { get; set; }
