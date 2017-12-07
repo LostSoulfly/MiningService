@@ -19,14 +19,14 @@ IdleMon starts a NamedPipe server which IdleService connects to and, using that 
 ## Current todo list
 - [X] Make project compilable
 - [X] Implement configuration loading from file, probably JSON
-- [ ] Load user-defined programs for different conditions
-- [ ] More complete NamedPipe communication and features
+- [X] Load user-defined programs for different conditions
+- [X] More complete NamedPipe communication and features
 - [ ] Average the CPU usage over a period of time longer than 1s, and stop programs if usage is too high while not idle
 - [ ] Monitor GPU temperature and stop programs if over a threshold
 - [ ] Monitor CPU temperature and stop programs if over a threshold
-- [ ] Add a stealth mode, which hides the task tray options
-- [ ] Add configuration options like debug output, log file, and network connectivity checking
-- [ ] Check if a program is running fullscreen as the current logged on user, and stop programs if detected
+- [X] (Partial) Add a stealth mode, which hides the task tray options
+- [X] Add configuration options like debug output, log file, and network connectivity checking
+- [X] (Partial) Check if a program is running fullscreen as the current logged on user, and stop programs if detected
 
 ### Credits
 https://github.com/acdvorak/named-pipe-wrapper
