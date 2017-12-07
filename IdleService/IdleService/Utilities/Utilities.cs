@@ -160,6 +160,7 @@ namespace IdleService
                 if (miner.isMiningIdleSpeed != isUserIdle)
                 {
                     Utilities.Debug("Miner " + miner.executable + " is not running in IDLE mode.");
+                    KillProcess(miner.executable);
                     areMinersRunning = false;
                 }
                 if (proc.Length == 0)
@@ -249,6 +250,8 @@ namespace IdleService
 
             Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
 
+
+            Config.isCurrentlyMining = true;
             return !launchIssues;
         }
         
@@ -373,6 +376,7 @@ namespace IdleService
             //This checks who is currently logged into the active Windows Session (think Desktop user)
             if (Utilities.GetUsernameBySessionId(sessionId, false) == "SYSTEM")
             {
+                Debug("CheckForSystem: SYSTEM");
                 KillMiners();
                 KillProcess(Config.idleMonExecutable);
                 Config.isUserLoggedIn = false;
@@ -424,8 +428,6 @@ namespace IdleService
             Debug("IsBatteryFull: " + pw.BatteryChargeStatus.ToString());
             
             if (pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.NoSystemBattery) |
-                pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.High) |
-                pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.Unknown) |
                 pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.Charging))
             {
                 return true;

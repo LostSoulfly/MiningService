@@ -248,7 +248,7 @@ namespace IdleService
             var procInfo = new PROCESS_INFORMATION();
             var pEnv = IntPtr.Zero;
             int iResultOfCreateProcessAsUser;
-
+            
             startInfo.cb = Marshal.SizeOf(typeof(STARTUPINFO));
 
             try

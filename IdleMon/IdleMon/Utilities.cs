@@ -11,7 +11,7 @@ namespace idleMon
 {
     class Utilities
     {
-        static long minutesIdle = 30;
+        public static long minutesIdle = 10;
         public static bool lastState;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -93,16 +93,13 @@ namespace idleMon
         
         public static bool IsIdle() //In minutes
         {
-            TimeSpan timespentIdle = TimeSpan.FromMilliseconds(IdleTimeFinder.GetIdleTime());
-
-            //Utilities.Log("Idle: " + timespentIdle.ToString());
-
-            if (timespentIdle.Hours >= 1)
+            TimeSpan idleTime = TimeSpan.FromMilliseconds(IdleTimeFinder.GetIdleTime());
+            
+            TimeSpan timeUntilIdle = TimeSpan.FromMinutes(minutesIdle);
+            
+            if (TimeSpan.Compare(idleTime, timeUntilIdle) >= 0)
                 return true;
-
-            if (timespentIdle.Minutes >= minutesIdle)
-                return true;
-
+            
             return false;
         }
 

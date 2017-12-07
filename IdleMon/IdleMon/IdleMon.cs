@@ -99,8 +99,7 @@ namespace IdleMon
         private void InitializeComponent()
         {
             TrayIcon = new NotifyIcon();
-
-            TrayIcon.BalloonTipIcon = ToolTipIcon.Info;
+            
             TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
             TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             TrayIcon.Text = "IdleMon";
@@ -183,8 +182,13 @@ namespace IdleMon
         private void PauseMenuItem_Click(object sender, EventArgs e)
         {
 
-            //PauseMining(!this.miningPaused);
-            SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
+            if (this.miningPaused)
+            {
+                SendPipeMessage(PacketID.Resume, false, Environment.UserName, PacketID.Pause);
+            } else
+            {
+                SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
+            }
 
         }
 
@@ -195,7 +199,7 @@ namespace IdleMon
             {
                 PauseMenuItem.Text = "Resume mining";
                 TrayIcon.BalloonTipText = "Pausing all mining until logoff or manually resumed.";
-                TrayIcon.BalloonTipIcon = ToolTipIcon.Info;
+                TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             }
             else
             {
@@ -275,7 +279,7 @@ namespace IdleMon
                     {
                         PauseMining(stateToSet: true, showTrayNotification: false);
                         TrayIcon.BalloonTipText = "Connected to IdleService! Mining is currently Paused.";
-                        TrayIcon.BalloonTipIcon = ToolTipIcon.Warning;
+                        TrayIcon.BalloonTipIcon = ToolTipIcon.None;
                         TrayIcon.ShowBalloonTip(3000);
                     }
 

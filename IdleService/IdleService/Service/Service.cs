@@ -71,9 +71,9 @@ namespace IdleService
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
         internal NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-        private Timer minerTimer = new Timer(10000);
-        private Timer sessionTimer = new Timer(60000);
-        private Timer apiCheckTimer = new Timer(10000);
+        private Timer minerTimer = new Timer(7000);
+        private Timer sessionTimer = new Timer(30000);
+        //private Timer apiCheckTimer = new Timer(10000);
         
         #region TopShelf Start/Stop/Abort
         public bool Start(HostControl hc)
@@ -126,7 +126,7 @@ namespace IdleService
             Config.isPipeConnected = false;
             minerTimer.Start();
             sessionTimer.Start();
-            apiCheckTimer.Start();
+            //apiCheckTimer.Start();
 
             //Let's try to start IdleMon now
             CheckSession();
@@ -150,7 +150,7 @@ namespace IdleService
             Utilities.Log("Stopping IdleService..");
             minerTimer.Stop();
             sessionTimer.Stop();
-            apiCheckTimer.Stop();
+            //apiCheckTimer.Stop();
             client.Stop();
 
             Config.isCurrentlyMining = false;
@@ -349,7 +349,7 @@ namespace IdleService
                     break;
 
                 default:
-                    Utilities.Debug("OnPowerChange: " + e.ToString());
+                    //Utilities.Debug("OnPowerChange: " + e.ToString());
                     break;
             }
         }
@@ -427,7 +427,15 @@ namespace IdleService
         {
 
             if (!Utilities.IsSystem())
+            {
+                if (!Config.isPipeConnected)
+                {
+                    Utilities.KillProcess(Config.idleMonExecutable);
+                    Utilities.LaunchProcess(Config.idleMonExecutable, "");
+                }
                 return;
+            }
+                
 
             Config.currentSessionId = ProcessExtensions.GetSession();
 
@@ -449,10 +457,11 @@ namespace IdleService
                 Config.sessionLaunchAttempts++;
                 Utilities.KillProcess(Config.idleMonExecutable);
 
+                /* Not currently working.. May have to find a different way.
                 string args = Config.settings.stealthMode ? "-stealth" : "";
                 args += Config.settings.enableLogging ? "-log" : "";
-
-                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, args, null, false);
+                */
+                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, "", null, false);
                 Utilities.Log("Attempting to start IdleMon in SessionID " + Config.currentSessionId);
                 return;
             }
@@ -487,7 +496,7 @@ namespace IdleService
                     Utilities.Debug("Mining is paused");
                     return;
                 }
-
+                
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))
                 {   
@@ -517,14 +526,17 @@ namespace IdleService
                 {
                     if (!Utilities.AreMinersRunning(Config.settings.cpuMiners, Config.isUserIdle))
                     {
+                        //Utilities.KillMiners();
                         Utilities.MinersShouldBeRunning(Config.settings.cpuMiners);
                         Utilities.LaunchMiners(Config.settings.cpuMiners);
                     }
                 }
 
-                if  (Config.settings.mineWithGpu) {
+                if  (Config.settings.mineWithGpu)
+                {
                     if (!Utilities.AreMinersRunning(Config.settings.gpuMiners, Config.isUserIdle))
                     {
+                        //Utilities.KillMiners();
                         Utilities.MinersShouldBeRunning(Config.settings.gpuMiners);
                         Utilities.LaunchMiners(Config.settings.gpuMiners);
                     }
