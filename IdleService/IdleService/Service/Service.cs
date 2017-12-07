@@ -22,11 +22,13 @@ namespace IdleService
 
         enum PacketID
         {
+            None,
             Hello,
             Goodbye,
             Idle,
             Pause,
-            Resume
+            Resume,
+            Stop
         }
 
         #region Json API for XMR-STAK-CPU only
@@ -186,46 +188,82 @@ namespace IdleService
         {
             Config.sessionLaunchAttempts = 0;
             Config.isPipeConnected = true;
-            switch (message.request)
+            switch (message.packetId)
             {
                 case ((int)PacketID.Idle):
-                    Utilities.Debug("Idle received from " + message.Id + ": " + message.isIdle);
+                    Utilities.Debug("Idle received from " + message.packetId + ": " + message.isIdle);
 
                     if (Config.isUserLoggedIn)
                         Config.isUserIdle = message.isIdle;
-
-                    /*
-                     * Potentially allow launching miners in the user's desktop session
-                     * instead of launching in SYSTEM context with a pipe message
-                    connection.PushMessage(new IdleMessage
-                    {
-                        Id = System.Diagnostics.Process.GetCurrentProcess().Id,
-                        isIdle = false,
-                        request = (int)PacketID.idle
-                    });
-                    */
-
                     break;
 
                 case ((int)PacketID.Pause):
                     Config.isMiningPaused = true;
                     Utilities.KillMiners();
                     Utilities.Log("Mining has been paused by IdleMon.");
+
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Pause,
+                        isIdle = false,
+                        requestId = (int)PacketID.None,
+                        data = ""
+                    });
+
                     break;
 
                 case ((int)PacketID.Resume):
                     Config.isMiningPaused = false;
                     Utilities.Log("Mining has been resumed by IdleMon.");
-                    //resume mining
-                    break;                    
+
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Resume,
+                        isIdle = false,
+                        requestId = (int)PacketID.None,
+                        data = ""
+                    });
+
+                    break;
+
+                case ((int)PacketID.Stop):
+
+                    //stop all service timers and etc
+                    Stop();
+
+                    //actually call host.Stop
+                    Abort();
+
+                    break;
 
                 case ((int)PacketID.Hello):
-                    Utilities.Log("idleMon user " + message.data + " connected. Session: " + message.Id);
+                    Utilities.Log("idleMon user " + message.data + " connected.");
                     Config.isUserIdle = message.isIdle;
+
+                    if (Config.isMiningPaused)
+                    {
+                        connection.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Hello,
+                            isIdle = false,
+                            requestId = (int)PacketID.Pause,
+                            data = ""
+                        });
+                    } else
+                    {
+                        connection.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Hello,
+                            isIdle = false,
+                            requestId = (int)PacketID.Resume,
+                            data = ""
+                        });
+                    }
+
                     break;
 
                 default:
-                    Utilities.Debug("IdleService Idle default: " + message.request);
+                    Utilities.Debug("IdleService Idle default: " + message.packetId);
                     break;
             }
         }

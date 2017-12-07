@@ -72,4 +72,12 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>mkdir ..\..\..\..\Build\
+copy $(TargetPath) ..\..\..\..\Build\
+copy TopShelf.dll ..\..\..\..\Build\
+copy Newtonsoft.Json.dll ..\..\..\..\Build\
+copy NamedPipeWrapper.dll ..\..\..\..\Build\
+</PostBuildEvent>
+  </PropertyGroup>
 </Project>
