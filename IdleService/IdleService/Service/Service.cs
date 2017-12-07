@@ -127,7 +127,10 @@ namespace IdleService
             minerTimer.Start();
             sessionTimer.Start();
             apiCheckTimer.Start();
-            
+
+            //Let's try to start IdleMon now
+            CheckSession();
+
             //start attempting to connect to IdleMon through a NamedPipe
             client.Start();
 
@@ -191,7 +194,7 @@ namespace IdleService
             switch (message.packetId)
             {
                 case ((int)PacketID.Idle):
-                    Utilities.Debug("Idle received from " + message.packetId + ": " + message.isIdle);
+                    Utilities.Debug("Idle received from " + message.data + ": " + message.isIdle);
 
                     if (Config.isUserLoggedIn)
                         Config.isUserIdle = message.isIdle;
@@ -417,6 +420,11 @@ namespace IdleService
         #region Timers/Events
         private void OnSessionTimer(object sender, ElapsedEventArgs e)
         {
+            CheckSession();
+        }
+
+        private void CheckSession()
+        {
 
             if (!Utilities.IsSystem())
                 return;
@@ -456,7 +464,7 @@ namespace IdleService
             else if (!Config.isUserLoggedIn)
             {
                 Config.sessionLaunchAttempts = 0;
-                
+
                 if (Config.currentSessionId > 0)
                     Config.isUserLoggedIn = true;
             }

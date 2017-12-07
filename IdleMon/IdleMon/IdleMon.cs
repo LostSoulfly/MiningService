@@ -43,12 +43,15 @@ namespace IdleMon
         private bool miningPaused;
         private bool monitorFullscreen;
         private bool fullscreenDetected;
+        private bool connectedToService;
 
         public IdleMonContext()
         {
+            InitializeComponent();
+
             if (!Program.stealthMode)
             {
-                InitializeComponent();
+                
                 Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
                 TrayIcon.Visible = true;
                 Utilities.Log("TrayIcon initialized.");
@@ -67,6 +70,18 @@ namespace IdleMon
             try
             {
                 server.Start();
+
+                System.Timers.Timer myTimer = new System.Timers.Timer(3000);
+                myTimer.Elapsed += delegate {
+                    if (!connectedToService && !Program.stealthMode) {
+                        TrayIcon.BalloonTipText = "Unable to connect to IdleService. Please make sure it is running!";
+                        TrayIcon.BalloonTipIcon = ToolTipIcon.Error;
+                        TrayIcon.ShowBalloonTip(3000);
+                        }
+                };
+                myTimer.AutoReset = false;
+                myTimer.Start();
+
             }
             catch
             {
@@ -87,6 +102,7 @@ namespace IdleMon
 
             TrayIcon.BalloonTipIcon = ToolTipIcon.Info;
             TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
+            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             TrayIcon.Text = "IdleMon";
             
             TrayIcon.Icon = IdleService.Properties.Resources.TrayIcon;
@@ -124,11 +140,19 @@ namespace IdleMon
 
         private void OnApplicationExit(object sender, EventArgs e)
         {
+            StopIdleMon();
+        }
+
+        private void StopIdleMon()
+        {
             //Cleanup so that the icon will be removed when the application is closed
             TrayIcon.Visible = false;
-            
+
             //stop the PipeServer
             server.Stop();
+
+            //and finally, exit IdleMon
+            System.Environment.Exit(0);
         }
 
         private void TrayIcon_DoubleClick(object sender, EventArgs e)
@@ -139,12 +163,20 @@ namespace IdleMon
 
         private void CloseMenuItem_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Do you want to stop mining?",
-                    "Are you sure?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation,
+            if (MessageBox.Show("This will stop IdleService as well, if it is running and connected.\n\nAre you sure?",
+                    "Stop Mining?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation,
                     MessageBoxDefaultButton.Button2) == DialogResult.Yes)
             {
                 //Can make this more graceful, but IdleService will kill IdleMon if stopping is successful.
                 SendPipeMessage(PacketID.Stop, false);
+
+                System.Timers.Timer myTimer = new System.Timers.Timer(3000);
+                myTimer.Elapsed += delegate {
+                    StopIdleMon();
+                };
+                myTimer.AutoReset = false;
+                myTimer.Start();
+
             }
         }
 
@@ -152,8 +184,7 @@ namespace IdleMon
         {
 
             //PauseMining(!this.miningPaused);
-            SendPipeMessage(PacketID.Pause, false, requestId: PacketID.Pause);
-            
+            SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
 
         }
 
@@ -164,11 +195,13 @@ namespace IdleMon
             {
                 PauseMenuItem.Text = "Resume mining";
                 TrayIcon.BalloonTipText = "Pausing all mining until logoff or manually resumed.";
+                TrayIcon.BalloonTipIcon = ToolTipIcon.Info;
             }
             else
             {
                 PauseMenuItem.Text = "Pause mining";
                 TrayIcon.BalloonTipText = "Mining will resume once you are detected as idle!";
+                TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             }
 
             if (showTrayNotification) TrayIcon.ShowBalloonTip(3000);
@@ -218,6 +251,7 @@ namespace IdleMon
         {
             Utilities.Log("idlePipe Err: " + exception.Message);
             timer.Stop();
+            connectedToService = false;
         }
 
         private void OnClientMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
@@ -226,12 +260,12 @@ namespace IdleMon
             {
 
                 case ((int)PacketID.Pause):
-                    Utilities.Log("Pause received from " + message.data + ".");
+                    Utilities.Log("Pause received from SYSTEM.");
                     PauseMining(true);
                     break;
 
                 case ((int)PacketID.Resume):
-                    Utilities.Log("Resume received from " + message.data + ".");
+                    Utilities.Log("Resume received from SYSTEM.");
                     PauseMining(false);
                     break;
 
@@ -241,6 +275,7 @@ namespace IdleMon
                     {
                         PauseMining(stateToSet: true, showTrayNotification: false);
                         TrayIcon.BalloonTipText = "Connected to IdleService! Mining is currently Paused.";
+                        TrayIcon.BalloonTipIcon = ToolTipIcon.Warning;
                         TrayIcon.ShowBalloonTip(3000);
                     }
 
@@ -248,6 +283,7 @@ namespace IdleMon
                     {
                         PauseMining(stateToSet: false, showTrayNotification: false);
                         TrayIcon.BalloonTipText = "Connected to IdleService! Mining will resume once you are idle.";
+                        TrayIcon.BalloonTipIcon = ToolTipIcon.None;
                         TrayIcon.ShowBalloonTip(3000);
                     }
                     break;
@@ -261,6 +297,7 @@ namespace IdleMon
 
             miningPaused = false;
             fullscreenDetected = false;
+            connectedToService = false;
 
             fullscreenTimer.Stop();
             timer.Stop();
@@ -271,8 +308,9 @@ namespace IdleMon
             Utilities.Log(string.Format("idleMon Client {0} is now connected!", connection.Id));
             timer.Start();
             fullscreenTimer.Start();
+            connectedToService = true;
 
-            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserDomainName, PacketID.None);
+            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
         }
 
         private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", PacketID requestId = PacketID.None)
