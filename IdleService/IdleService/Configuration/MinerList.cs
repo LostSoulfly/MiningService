@@ -14,6 +14,10 @@ namespace IdleService
             this.executable = executable;
             this.idleArguments = idleArguments;
             this.activeArguments = activeArguments;
+            shouldMinerBeRunning = false;
+            isMiningIdleSpeed = false;
+            minerDisabled = false;
+            launchAttempts = 0;
         }
 
         public string executable { get; set; }

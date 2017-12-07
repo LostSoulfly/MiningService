@@ -43,7 +43,7 @@ namespace IdleService
         {
             //Create a temporary Settings object
             Settings settingsJson = new Settings();
-
+            
             //If the passed file path does not exist, load defaults and save them to file
             if (!File.Exists(jsonFilePath))
             {
@@ -55,8 +55,10 @@ namespace IdleService
             {
                 //Try to read and deserialize the passed file path into the temporary Settings object
                 settingsJson = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(jsonFilePath));
-
-                //at this point, we can replace the original global settings object with our temp one
+                
+                //Pass our new settings to VerifySettings, check it for safe numbers etc
+                VerifySettings(ref settingsJson);
+                
                 settings = settingsJson;
 
             } catch (Exception ex)
@@ -67,13 +69,14 @@ namespace IdleService
             //if load was successful
             configInitialized = true;
         }
-        
+
         public static void WriteConfigToFile(string jsonFilePath)
         {
             try
             {
                 File.WriteAllText(jsonFilePath, JsonConvert.SerializeObject(settings, Formatting.Indented));
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 Utilities.Log("WriteConfigToFile: " + ex.Message);
             }
@@ -95,57 +98,69 @@ namespace IdleService
 
         }
 
-        private static Settings VerifySettings(Settings settingsJson)
+        private static void VerifySettings(ref Settings tempSettings)
         {
             //verify we don't have any negative numbers, numbers that are lower or higher than safe values, or empty strings (like the url, but only need to check if verifyNetwork is true).
-            if (settings.maxCpuTemp > 90 || settings.maxCpuTemp < 0)
-                settings.maxCpuTemp = 70;
+            if (tempSettings.maxCpuTemp > 90 || tempSettings.maxCpuTemp < 0)
+                tempSettings.maxCpuTemp = 70;
 
-            if (settings.maxGpuTemp > 100 || settings.maxGpuTemp < 0)
-                settings.maxGpuTemp = 70;
+            if (tempSettings.maxGpuTemp > 100 || tempSettings.maxGpuTemp < 0)
+                tempSettings.maxGpuTemp = 70;
 
-            if (settings.minutesUntilIdle > 3600 || settings.minutesUntilIdle < 3)
-                settings.minutesUntilIdle = 10;
+            if (tempSettings.minutesUntilIdle > 3600 || tempSettings.minutesUntilIdle < 3)
+                tempSettings.minutesUntilIdle = 10;
 
-            if (settings.cpuUsageThresholdWhileNotIdle > 100 || settings.cpuUsageThresholdWhileNotIdle < 0)
-                settings.cpuUsageThresholdWhileNotIdle = 80;
+            if (tempSettings.cpuUsageThresholdWhileNotIdle > 100 || tempSettings.cpuUsageThresholdWhileNotIdle < 0)
+                tempSettings.cpuUsageThresholdWhileNotIdle = 80;
 
-            if (settings.resumePausedMiningAfterMinutes > 3600 || settings.resumePausedMiningAfterMinutes < 0)
-                settings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
+            if (tempSettings.resumePausedMiningAfterMinutes > 3600 || tempSettings.resumePausedMiningAfterMinutes < 0)
+                tempSettings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
 
-            if (settings.urlToCheckForNetwork.Length <= 0 && settings.verifyNetworkConnectivity)
-                settings.urlToCheckForNetwork = "http://beta.speedtest.net/";
+            if (tempSettings.urlToCheckForNetwork.Length <= 0 && tempSettings.verifyNetworkConnectivity)
+                tempSettings.urlToCheckForNetwork = "http://beta.speedtest.net/";
 
-            if (!VerifyCpuMiners())
-                Utilities.Log("There is a problem with your CPU Miner configuration! Make sure there are no empty executables!");
-
-            if (!VerifyGpuMiners())
-                Utilities.Log("There is a problem with your GPU Miner configuration! Make sure there are no empty executables!");
-
-            //return our verified settingsJson object
-            return settingsJson;
-        }
-        
-        private static bool VerifyCpuMiners()
-        {
-            foreach (var miner in Config.settings.cpuMiners)
+            VerifyMiners(tempSettings.cpuMiners);
+            VerifyMiners(tempSettings.gpuMiners);
+            
+            if (!File.Exists(idleMonExecutable))
             {
-                if (miner.executable.Length == 0)
+                if (File.Exists(Utilities.ApplicationPath() + idleMonExecutable))
                 {
-                    return false;
+                    idleMonExecutable = Utilities.ApplicationPath() + idleMonExecutable;
+                } else
+                { 
+                    Utilities.Log("Unable to locate " + idleMonExecutable + ". Stopping IdleService.", force: true);
+                    System.Environment.Exit(200);
                 }
             }
 
-            return true;
+            //return our verified settingsJson object
+            //return tempSettings;
         }
 
-        private static bool VerifyGpuMiners()
+        private static bool VerifyMiners(List<MinerList> minerList)
         {
-            foreach (var miner in Config.settings.gpuMiners)
+            foreach (var miner in minerList)
             {
                 if (miner.executable.Length == 0)
                 {
+
+                    Utilities.Log("You have an empty Miner, this is not allowed.", force: true);
+                    System.Environment.Exit(100);
                     return false;
+                }
+
+                if (!File.Exists(miner.executable))
+                {
+                    if (File.Exists(Utilities.ApplicationPath() + miner.executable))
+                    {
+                        miner.executable = Utilities.ApplicationPath() + miner.executable;
+                    } else
+                    { 
+                        Utilities.Log("Unable to locate miner Exe: " + miner.executable, force: true);
+                        System.Environment.Exit(100);
+                        return false;
+                    }
                 }
             }
 

@@ -73,20 +73,19 @@ namespace IdleService
         {
             //This is called to verify network connectivity, I personally use a MinerProxy instance's built-in web server API at /status, which returns "True".
             //In theory, anything that actually loads should work.
-
-            //todo: Allow setting this from a config file
+            
             try
             {
                 using (var client = new System.Net.WebClient())
-                using (var stream = client.OpenRead("http://127.0.0.1:9091/status"))
+                using (var stream = client.OpenRead(Config.settings.urlToCheckForNetwork))
                 {
-                    //Log("Proxy online and reachable.");
+                    Debug("Network Connectivity verified.");
                     return true;
                 }
             }
             catch
             {
-                //Log("Proxy offline or unreachable.");
+                Debug("Network Conectivity URL unreachable.");
                 return false;
             }
         }
@@ -102,11 +101,14 @@ namespace IdleService
                 var cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total", true);
                 cpuCounter.NextValue();
                 System.Threading.Thread.Sleep(1000);
-                return (int)cpuCounter.NextValue();
+                int cpuPercent = (int)cpuCounter.NextValue();
+
+                Debug("CPU Usage percent: " + cpuPercent);
+                return cpuPercent;
             }
-            catch
+            catch (Exception ex)
             {
-                //Log("GetCpuUsage: " + ex.Message);
+                Debug("GetCpuUsage: " + ex.Message);
                 return 50;
             }
         }
@@ -120,14 +122,14 @@ namespace IdleService
 
         public static bool IsProcessRunning(string process)
         {
-            Process[] proc = Process.GetProcessesByName(process);
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
 
             if (proc.Length == 0)
                 return false;
 
             if (proc.Length > 1)
             {
-                Utilities.Log("More than one " + process);
+                Utilities.Debug("More than one " + process);
                 Utilities.KillProcess(process);
                 return false;
             }
@@ -137,7 +139,7 @@ namespace IdleService
 
         public static bool IsProcessRunning(MinerList miner)
         {
-            Process[] proc = Process.GetProcessesByName(miner.executable);
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
 
             if (proc.Length == 0)
                 return false;
@@ -145,19 +147,26 @@ namespace IdleService
             return true;
         }
 
-        public static bool AreMinersRunning(List<MinerList> miners)
+        public static bool AreMinersRunning(List<MinerList> miners, bool isUserIdle)
         {
-            bool minerNotRunning = false;
+            bool areMinersRunning = true;
+
+            Debug("AreMinersRunning entered");
 
             foreach (var miner in miners)
             {
-                Process[] proc = Process.GetProcessesByName(miner.executable);
-
+                Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
+                
+                if (miner.isMiningIdleSpeed != isUserIdle)
+                {
+                    Utilities.Debug("Miner " + miner.executable + " is not running in IDLE mode.");
+                    areMinersRunning = false;
+                }
                 if (proc.Length == 0)
-                    minerNotRunning = true;
+                    areMinersRunning = false;
             }
-
-            return minerNotRunning;
+            Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
+            return areMinersRunning;
         }
 
         public static int LaunchProcess(string exe, string args)
@@ -169,6 +178,8 @@ namespace IdleService
 
             Process proc = new Process();
             proc.StartInfo = psi;
+
+            Debug("Starting Process " + exe + " " + args);
 
             proc = Process.Start(exe, args);
             return proc.Id;
@@ -185,7 +196,7 @@ namespace IdleService
 
             if (arguments.Length == 0)
                 return 0;
-
+            
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.RedirectStandardOutput = false;
             psi.RedirectStandardError = false;
@@ -193,6 +204,11 @@ namespace IdleService
 
             Process proc = new Process();
             proc.StartInfo = psi;
+
+
+            Debug("Starting Process " + miner.executable + " " + arguments);
+
+            miner.isMiningIdleSpeed = Config.isUserIdle;
 
             proc = Process.Start(miner.executable, arguments);
             miner.launchAttempts++;
@@ -203,11 +219,16 @@ namespace IdleService
         {
             bool launchIssues = false;
             bool isRunning = false;
-            
+
+            Debug("LaunchMiners entered");
+
             foreach (var miner in minerList)
             {
                 isRunning = IsProcessRunning(miner);
-                if (miner.shouldMinerBeRunning && !isRunning && miner.launchAttempts <= 4)
+                Debug("shouldMinerBeRunning: " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts" + miner.launchAttempts);
+                if ((miner.shouldMinerBeRunning && !miner.minerDisabled) && 
+                    (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) && 
+                    miner.launchAttempts <= 4)
                 {
                     if (LaunchProcess(miner) <= 0)  //returns PID
                     {
@@ -219,39 +240,38 @@ namespace IdleService
                 } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
                 {
                     miner.launchAttempts = 0;
-                } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts > 4)
+                } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts > 4 && !miner.minerDisabled)
                 {
+                    Log("Miner " + miner.executable + " has failed to launch 5 times, and is now disabled.");
                     miner.minerDisabled = true;
                 }
             }
-            
+
+            Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
+
             return !launchIssues;
         }
-
-        public static bool LaunchMiners()
+        
+        public static void MinersShouldBeRunning(List<MinerList> minerList)
         {
-            bool launchIssues = false;
-
-            launchIssues = LaunchMiners(Config.settings.cpuMiners);
-
-            if (!LaunchMiners(Config.settings.cpuMiners))
-                launchIssues = true;
-
-            Config.isCurrentlyMining = true;
-            return !launchIssues;
+            foreach (var miner in minerList)
+            {
+                if (!miner.minerDisabled && miner.launchAttempts < 4)
+                miner.shouldMinerBeRunning = true;
+            }
         }
 
         public static void KillMiners()
         {
-
+            Debug("KillMiners entered");
             //loop through the CPU miner list and kill all miners
             if (Config.settings.mineWithCpu)
             {
                 foreach (var miner in Config.settings.cpuMiners)
                 {
-                    if (miner.shouldMinerBeRunning)
+                    if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
                     {
-                        KillProcess(miner.executable);
+                        KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
                         miner.shouldMinerBeRunning = false;
                     }
                 }
@@ -264,11 +284,14 @@ namespace IdleService
                 {
                     if (miner.shouldMinerBeRunning)
                     {
-                        KillProcess(miner.executable);
+                        Debug("Killing miner " + miner.executable);
+                        KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
                         miner.shouldMinerBeRunning = false;
                     }
                 }
             }
+
+            Debug("KillMiners exited");
 
             //we're no longer mining
             Config.isCurrentlyMining = false;
@@ -278,17 +301,20 @@ namespace IdleService
         {
             bool cantKillProcess = false;
 
+            Debug("KillProcess entered: " + proc);
+
             try
             {
-                foreach (Process p in Process.GetProcessesByName(proc))
+                foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
                 {
+                    Debug("Process found: " + p.Id);
                     p.Kill();
                     p.WaitForExit(3000);    //wait a max of 3 seconds for the process to terminate
 
                     if (!p.HasExited)
                         cantKillProcess = true;
 
-                    Utilities.Log(string.Format("Killed {0}.", proc));
+                    Debug("Killed " + proc);
                 }
             }
             catch (Exception ex)
@@ -297,11 +323,11 @@ namespace IdleService
                 return false;
             }
 
-            //if we can't kill one of the processes, we should return FALSE!
-            if (cantKillProcess) return false;
+            Debug("KillProcess exited. cantKillProcess: " + cantKillProcess);
 
-            //otherwise, all processes were stopped, so return true
-            return true;
+            //if we can't kill one of the processes, we should return FALSE!
+            return !cantKillProcess;
+            
         }
         #endregion
 
@@ -395,8 +421,8 @@ namespace IdleService
         {
             System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
 
-            //Utilities.Log("IsBatteryFull: " + pw.BatteryChargeStatus.ToString());
-
+            Debug("IsBatteryFull: " + pw.BatteryChargeStatus.ToString());
+            
             if (pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.NoSystemBattery) |
                 pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.High) |
                 pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.Unknown) |
@@ -411,24 +437,41 @@ namespace IdleService
         public static bool DoesBatteryExist()
         {
             System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
-            int powerPercent = (int)(pw.BatteryLifePercent * 100);
-            if (powerPercent > 0)
-            {
-                //Utilities.Log("Battery exists: " + powerPercent);
-                return true;
-            }
+            
+            if (pw.BatteryChargeStatus == BatteryChargeStatus.NoSystemBattery)
+                return false;
 
-            return false;
+            return true;
         }
 #endregion
 
         #region Logging
         public static void Log(string text, bool force = false)
         {
+
+            if (!IsSystem())
+                Console.WriteLine(DateTime.Now.ToString() + " LOG: " + text);
+
             try
             {
                 if (force || Config.settings.enableLogging)
-                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
+                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + ") LOG: " + text + System.Environment.NewLine);
+            }
+            catch
+            {
+
+            }
+        }
+
+        public static void Debug(string text)
+        {
+            if (!IsSystem() && Config.settings.enableDebug)
+                Console.WriteLine(DateTime.Now.ToString() + " DEBUG: " + text);
+
+            try
+            {
+                if (Config.settings.enableLogging && Config.settings.enableDebug)
+                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + ") DEBUG: " + text + System.Environment.NewLine);
             }
             catch
             {

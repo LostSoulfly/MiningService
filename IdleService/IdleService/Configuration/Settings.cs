@@ -51,6 +51,8 @@ namespace IdleService
         
         public void SetupDefaultConfig()
         {
+            enableDebug = false;
+            enableLogging = true;
             stealthMode = false;
             preventSleep = true;
             monitorCpuTemp = true;
