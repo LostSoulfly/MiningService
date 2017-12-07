@@ -16,7 +16,7 @@ namespace IdleService
         #region Public variables
         
         //This version string is actually quite useless. I just use it to verify the running version in log files.
-        public static string version = "0.0.6";
+        public static string version = "0.0.8";
         
 #endregion
 
