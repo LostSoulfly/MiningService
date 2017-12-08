@@ -20,7 +20,7 @@ namespace IdleService
     class MyService
     {
 
-        enum PacketID
+        public enum PacketID
         {
             None,
             Hello,
@@ -28,7 +28,11 @@ namespace IdleService
             Idle,
             Pause,
             Resume,
-            Stop
+            Stop,
+            Stealth,
+            Log,
+            Fullscreen,
+            IdleTime
         }
 
         #region Json API for XMR-STAK-CPU only
@@ -197,7 +201,10 @@ namespace IdleService
                     Utilities.Debug("Idle received from " + message.data + ": " + message.isIdle);
 
                     if (Config.isUserLoggedIn)
+                    {
                         Config.isUserIdle = message.isIdle;
+                        OnMinerTimerEvent(minerTimer, null);    //call the minerTime event immediately to process the change.
+                    }
                     break;
 
                 case ((int)PacketID.Pause):
@@ -263,6 +270,37 @@ namespace IdleService
                         });
                     }
 
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Log,
+                        isIdle = Config.settings.enableLogging,
+                        requestId = (int)PacketID.None,
+                        data = ""
+                    });
+
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Stealth,
+                        isIdle = Config.settings.stealthMode,
+                        requestId = (int)PacketID.None,
+                        data = ""
+                    });
+
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.IdleTime,
+                        isIdle = false,
+                        requestId = (int)PacketID.None,
+                        data = Config.settings.minutesUntilIdle.ToString()
+                    });
+
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Fullscreen,
+                        isIdle = Config.settings.monitorFullscreen,
+                        requestId = (int)PacketID.None,
+                        data = ""
+                    });
                     break;
 
                 default:
@@ -345,7 +383,7 @@ namespace IdleService
                     break;
 
                 case PowerModes.StatusChange:
-                    Utilities.Debug("Power changed: " + e.ToString()); // ie. weak battery
+                    //Utilities.Debug("Power changed: " + e.Mode.ToString()); // ie. weak battery
                     break;
 
                 default:

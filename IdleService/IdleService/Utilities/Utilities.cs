@@ -157,14 +157,19 @@ namespace IdleService
             {
                 Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
                 
-                if (miner.isMiningIdleSpeed != isUserIdle)
+                if (miner.isMiningIdleSpeed != isUserIdle && miner.shouldMinerBeRunning)
                 {
                     Utilities.Debug("Miner " + miner.executable + " is not running in IDLE mode.");
                     KillProcess(miner.executable);
                     areMinersRunning = false;
                 }
                 if (proc.Length == 0)
+                {
                     areMinersRunning = false;
+                } else
+                {
+                    miner.launchAttempts = 0;
+                }
             }
             Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
             return areMinersRunning;
@@ -227,6 +232,7 @@ namespace IdleService
             {
                 isRunning = IsProcessRunning(miner);
                 Debug("shouldMinerBeRunning: " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts" + miner.launchAttempts);
+
                 if ((miner.shouldMinerBeRunning && !miner.minerDisabled) && 
                     (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) && 
                     miner.launchAttempts <= 4)
@@ -259,8 +265,14 @@ namespace IdleService
         {
             foreach (var miner in minerList)
             {
-                if (!miner.minerDisabled && miner.launchAttempts < 4)
-                miner.shouldMinerBeRunning = true;
+                if ((!miner.minerDisabled && miner.launchAttempts < 4) && (miner.mineWhileNotIdle || Config.isUserIdle))
+                {
+                    miner.shouldMinerBeRunning = true;
+                } else
+                {
+                    miner.shouldMinerBeRunning = false;
+                }
+                    miner.isMiningIdleSpeed = false;
             }
         }
 
@@ -424,14 +436,15 @@ namespace IdleService
         public static bool IsBatteryFull()
         {
             System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
-
-            Debug("IsBatteryFull: " + pw.BatteryChargeStatus.ToString());
             
-            if (pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.NoSystemBattery) |
-                pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.Charging))
-            {
+            float floatBatteryPercent = 100 * SystemInformation.PowerStatus.BatteryLifePercent;
+            int batteryPercent = (int)floatBatteryPercent;
+            
+            if (pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.NoSystemBattery))
                 return true;
-            }
+
+            if (batteryPercent == 100)
+                return true;
 
             return false;
         }
