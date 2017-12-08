@@ -77,13 +77,12 @@ namespace idleMon
             {
                 return false;
             }
-
-
+            
         }
 
         public static void Log(string text)
         {
-            if (!Program.enableLogging)
+            if (!IdleMon.IdleMonContext.enableLogging)
                 return;
 
             try

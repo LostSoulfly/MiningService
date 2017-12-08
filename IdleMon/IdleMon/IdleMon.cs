@@ -31,6 +31,9 @@ namespace IdleMon
             IdleTime
         }
 
+        public static bool stealthMode = false;
+        public static bool enableLogging = false;
+
         //Where the actual program starts
         private NotifyIcon TrayIcon;
         private ContextMenuStrip TrayIconContextMenu;
@@ -39,7 +42,7 @@ namespace IdleMon
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
-        private System.Timers.Timer timer = new System.Timers.Timer(3000);
+        private System.Timers.Timer timer = new System.Timers.Timer(5000);
         private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(20000);
 
         private bool lowOnly;
@@ -51,8 +54,9 @@ namespace IdleMon
 
         public IdleMonContext()
         {
-            //InitializeComponent();
-            
+            if (!stealthMode)
+                InitializeComponent();
+
             timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
             fullscreenTimer.Elapsed += new ElapsedEventHandler(OnFullscreenTimer);
 
@@ -65,9 +69,9 @@ namespace IdleMon
             {
                 server.Start();
 
-                System.Timers.Timer myTimer = new System.Timers.Timer(3000);
+                System.Timers.Timer myTimer = new System.Timers.Timer(5000);
                 myTimer.Elapsed += delegate {
-                    if (!connectedToService && !Program.stealthMode) {
+                    if (!connectedToService && !stealthMode) {
                         TrayIcon.BalloonTipText = "Unable to connect to IdleService. Please make sure it is running!";
                         TrayIcon.BalloonTipIcon = ToolTipIcon.Error;
                         TrayIcon.ShowBalloonTip(3000);
@@ -92,8 +96,10 @@ namespace IdleMon
 
         private void InitializeComponent()
         {
-            TrayIcon = new NotifyIcon();
             
+            TrayIcon = new NotifyIcon();
+            Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
+           
             TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
             TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             TrayIcon.Text = "IdleMon";
@@ -108,27 +114,30 @@ namespace IdleMon
             CloseMenuItem = new ToolStripMenuItem();
             PauseMenuItem = new ToolStripMenuItem();
             TrayIconContextMenu.SuspendLayout();
-            
+
             // TrayIconContextMenu
             this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] {
-            this.CloseMenuItem, this.PauseMenuItem});
+                this.CloseMenuItem, this.PauseMenuItem});
             this.TrayIconContextMenu.Name = "TrayIconContextMenu";
             this.TrayIconContextMenu.Size = new Size(153, 70);
-            
+
             // CloseMenuItem
             this.CloseMenuItem.Name = "CloseMenuItem";
             this.CloseMenuItem.Size = new Size(152, 22);
             this.CloseMenuItem.Text = "Exit IdleMon";
             this.CloseMenuItem.Click += new EventHandler(this.CloseMenuItem_Click);
-            
+
             // PauseMenuItem
             this.PauseMenuItem.Name = "PauseMenuItem";
             this.PauseMenuItem.Size = new Size(152, 22);
             this.PauseMenuItem.Text = "Pause mining";
             this.PauseMenuItem.Click += new EventHandler(this.PauseMenuItem_Click);
+           
 
             TrayIconContextMenu.ResumeLayout(false);
             TrayIcon.ContextMenuStrip = TrayIconContextMenu;
+            
+            TrayIcon.Visible = true;
         }
 
         private void OnApplicationExit(object sender, EventArgs e)
@@ -139,7 +148,7 @@ namespace IdleMon
         private void StopIdleMon()
         {
             //Cleanup so that the icon will be removed when the application is closed
-            TrayIcon.Visible = false;
+            if (TrayIcon != null) TrayIcon.Visible = false;
 
             //stop the PipeServer
             server.Stop();
@@ -151,12 +160,12 @@ namespace IdleMon
         private void TrayIcon_DoubleClick(object sender, EventArgs e)
         {
             //Show the last BalloonTip message
-            TrayIcon.ShowBalloonTip(3000);
+            TrayIcon.ShowBalloonTip(1000);
         }
 
         private void CloseMenuItem_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("This will stop IdleService as well, if it is running and connected.\n\nAre you sure?",
+            if (!connectedToService || MessageBox.Show("This will also stop the IdleService.\n\nAre you sure?",
                     "Stop Mining?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation,
                     MessageBoxDefaultButton.Button2) == DialogResult.Yes)
             {
@@ -189,20 +198,24 @@ namespace IdleMon
         private void PauseMining(bool stateToSet, bool showTrayNotification = true)
         {
             this.miningPaused = (stateToSet);
+
+            if (TrayIcon == null)
+                return;
+
             if (stateToSet)
             {
                 PauseMenuItem.Text = "Resume mining";
-                TrayIcon.BalloonTipText = "Pausing all mining until logoff or manually resumed.";
+                TrayIcon.BalloonTipText = "Pausing all mining.";
                 TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             }
             else
             {
                 PauseMenuItem.Text = "Pause mining";
-                TrayIcon.BalloonTipText = "Mining will resume once you are detected as idle!";
+                TrayIcon.BalloonTipText = "Mining has been resumed.";
                 TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             }
 
-            if (showTrayNotification) TrayIcon.ShowBalloonTip(3000);
+            if (showTrayNotification) TrayIcon.ShowBalloonTip(1000);
         }
 
         private void OnTimedEvent(object source, ElapsedEventArgs e)
@@ -249,6 +262,7 @@ namespace IdleMon
         private void OnError(Exception exception)
         {
             Utilities.Log("idlePipe Err: " + exception.Message);
+
             timer.Stop();
             connectedToService = false;
         }
@@ -257,21 +271,19 @@ namespace IdleMon
         {
             switch (message.packetId)
             {
-
                 case ((int)PacketID.Pause):
-                    Utilities.Log("Pause received from SYSTEM.");
+                    Utilities.Log("Pause received from IdleService.");
                     PauseMining(true);
                     break;
 
                 case ((int)PacketID.Resume):
-                    Utilities.Log("Resume received from SYSTEM.");
+                    Utilities.Log("Resume received from IdleService.");
                     PauseMining(false);
                     break;
 
                 case ((int)PacketID.IdleTime):
-                    Utilities.Log("IdleTime received from SYSTEM.");
                     
-                     int minutes = Int32.Parse(message.data);
+                    int minutes = Int32.Parse(message.data);
 
                     if (minutes < 0 || minutes > 3600)
                     {
@@ -280,35 +292,41 @@ namespace IdleMon
                     {
                         Utilities.minutesIdle = minutes;
                     }
+
+                    Utilities.Log("IdleTime received from IdleService: " + Utilities.minutesIdle);
+
                     break;
 
                 case ((int)PacketID.Stealth):
-                    Utilities.Log("Stealth received from SYSTEM.");
+                    Utilities.Log("Stealth received from IdleService: " + message.isIdle);
 
-                    Program.stealthMode = message.isIdle;
-                    
-                    if (message.isIdle)
-                    {
-                        InitializeComponent();
-                        TrayIcon.Visible = !message.isIdle;
-                        Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
+                    //stealthMode = message.isIdle;
+                    //if (stealthMode)
+
+                        //InitializeComponent();
+                    /*
+                    if (Program.stealthMode) {
+                        
                         Utilities.Log("Stealth initialized.");
+                    } else
+                    {
+                        TrayIcon.Visible = false;
                     }
-                    
+                    */
                     break;
 
                 case ((int)PacketID.Log):
-                    Utilities.Log("Log received from SYSTEM.");
+                    Utilities.Log("Log received from IdleService.");
 
                     if (message.isIdle)
                     {
-                        Program.enableLogging = message.isIdle;
+                        enableLogging = message.isIdle;
                         Utilities.Log("Logging initialized.");
                     }
                     break;
 
                 case ((int)PacketID.Fullscreen):
-                    Utilities.Log("Fullscreen received from SYSTEM.");
+                    Utilities.Log("Fullscreen received from IdleService.");
 
                     if (message.isIdle)
                     {
@@ -323,17 +341,23 @@ namespace IdleMon
                     if (message.requestId == (int)PacketID.Pause)
                     {
                         PauseMining(stateToSet: true, showTrayNotification: false);
-                        TrayIcon.BalloonTipText = "Connected to IdleService! Mining is currently Paused.";
-                        TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-                        TrayIcon.ShowBalloonTip(3000);
+                        if (TrayIcon != null)
+                        {
+                            TrayIcon.BalloonTipText = "Connected to IdleService! Mining is currently Paused.";
+                            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                            TrayIcon.ShowBalloonTip(1000);
+                        }
                     }
 
                     if (message.requestId == (int)PacketID.Resume)
                     {
                         PauseMining(stateToSet: false, showTrayNotification: false);
-                        TrayIcon.BalloonTipText = "Connected to IdleService! Mining will resume once you are idle.";
-                        TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-                        TrayIcon.ShowBalloonTip(3000);
+                        if (TrayIcon != null)
+                        {
+                            TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
+                            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                            TrayIcon.ShowBalloonTip(1000);
+                        }
                     }
                     break;
 
@@ -358,6 +382,7 @@ namespace IdleMon
             timer.Start();
             if (monitorFullscreen) fullscreenTimer.Start();
             connectedToService = true;
+
 
             SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
         }
