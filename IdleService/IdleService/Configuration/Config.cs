@@ -48,6 +48,8 @@ namespace IdleService
             if (!File.Exists(jsonFilePath))
             {
                 LoadDefaultConfig();
+                VerifySettings(ref settings);
+
                 return;
             }
 
