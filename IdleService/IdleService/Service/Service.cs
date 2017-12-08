@@ -249,27 +249,7 @@ namespace IdleService
                 case ((int)PacketID.Hello):
                     Utilities.Log("idleMon user " + message.data + " connected.");
                     Config.isUserIdle = message.isIdle;
-
-                    if (Config.isMiningPaused)
-                    {
-                        connection.PushMessage(new IdleMessage
-                        {
-                            packetId = (int)PacketID.Hello,
-                            isIdle = false,
-                            requestId = (int)PacketID.Pause,
-                            data = ""
-                        });
-                    } else
-                    {
-                        connection.PushMessage(new IdleMessage
-                        {
-                            packetId = (int)PacketID.Hello,
-                            isIdle = false,
-                            requestId = (int)PacketID.Resume,
-                            data = ""
-                        });
-                    }
-
+                    
                     connection.PushMessage(new IdleMessage
                     {
                         packetId = (int)PacketID.Log,
@@ -278,6 +258,7 @@ namespace IdleService
                         data = ""
                     });
 
+                    /*
                     connection.PushMessage(new IdleMessage
                     {
                         packetId = (int)PacketID.Stealth,
@@ -285,6 +266,7 @@ namespace IdleService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
+                    */
 
                     connection.PushMessage(new IdleMessage
                     {
@@ -301,6 +283,28 @@ namespace IdleService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
+
+                    if (Config.isMiningPaused)
+                    {
+                        connection.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Hello,
+                            isIdle = false,
+                            requestId = (int)PacketID.Pause,
+                            data = ""
+                        });
+                    }
+                    else
+                    {
+                        connection.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Hello,
+                            isIdle = false,
+                            requestId = (int)PacketID.Resume,
+                            data = ""
+                        });
+                    }
+
                     break;
 
                 default:
@@ -499,7 +503,7 @@ namespace IdleService
                 string args = Config.settings.stealthMode ? "-stealth" : "";
                 args += Config.settings.enableLogging ? "-log" : "";
                 */
-                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, "", null, false);
+                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, null, null, false);
                 Utilities.Log("Attempting to start IdleMon in SessionID " + Config.currentSessionId);
                 return;
             }

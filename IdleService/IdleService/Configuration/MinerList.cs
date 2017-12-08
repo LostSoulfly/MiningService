@@ -25,7 +25,7 @@ namespace IdleService
         public string activeArguments { get; set; }
         public bool mineWhileNotIdle { get; set; }
         internal int launchAttempts { get; set; }
-        internal bool minerDisabled { get; set; }
+        public bool minerDisabled { get; set; }
         internal bool shouldMinerBeRunning { get; set; }
         internal bool isMiningIdleSpeed { get; set; }
     }

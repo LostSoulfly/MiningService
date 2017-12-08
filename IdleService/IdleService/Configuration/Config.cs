@@ -115,8 +115,8 @@ namespace IdleService
             if (tempSettings.cpuUsageThresholdWhileNotIdle > 100 || tempSettings.cpuUsageThresholdWhileNotIdle < 0)
                 tempSettings.cpuUsageThresholdWhileNotIdle = 80;
 
-            if (tempSettings.resumePausedMiningAfterMinutes > 3600 || tempSettings.resumePausedMiningAfterMinutes < 0)
-                tempSettings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
+            //if (tempSettings.resumePausedMiningAfterMinutes > 3600 || tempSettings.resumePausedMiningAfterMinutes < 0)
+            //    tempSettings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
 
             if (tempSettings.urlToCheckForNetwork.Length <= 0 && tempSettings.verifyNetworkConnectivity)
                 tempSettings.urlToCheckForNetwork = "http://beta.speedtest.net/";
