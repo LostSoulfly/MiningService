@@ -39,7 +39,10 @@ namespace idleMon
             foreach (var item in screen)
             {
                 if (IsForegroundFullScreen(item))
+                {
+                    Utilities.Log("Fullscreen detected:");
                     return true;
+                }
             }
             return IsForegroundFullScreen(null);
         }
@@ -63,7 +66,11 @@ namespace idleMon
                 uint procId = 0;
                 GetWindowThreadProcessId(hWnd, out procId);
                 var proc = System.Diagnostics.Process.GetProcessById((int)procId);
+
                 Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);
+                if (proc.ProcessName == "explorer")
+                    return false;
+
                 return true;
             }
             else

