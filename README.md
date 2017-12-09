@@ -3,6 +3,7 @@ TopShelf service and userland idle monitor for easy crypto mining
 
 Comprised of two separate programs.
 
+This is an idle miner software; it should detect whether your computer is idle or locked and mine accordingly based on your settings. Most features are implemented and (should be) working with the current release.
 
 ### IdleService
 
@@ -17,13 +18,13 @@ IdleMon starts a NamedPipe server which IdleService connects to and, using that 
 
 
 ## Current todo list
-- [X] Most things seem to work!
-- [X] Implement configuration loading from file, probably JSON
+- [X] Most things work!
+- [X] Implement configuration loading from a JSON file
 - [X] Load user-defined programs for different conditions
-- [X] More complete NamedPipe communication and features
-- [X] (Partial) Add a stealth mode, which hides the task tray options
-- [X] Add configuration options like debug output, log file, and network connectivity checking
-- [X] Check if a program is running fullscreen as the current logged on user, and stop programs if detected (needs testing)
+- [X] More complete NamedPipe (IdleService -> IdleMon) communication and features
+- [X] Add a stealth mode, which hides the task tray options (you must recompile it with the stealthMode option set to true in IdleMon)
+- [X] Add configuration options like debug output, log file, and network connectivity checking (connectivity checking is implemented, but not used or tested)
+- [X] Check if a program is running fullscreen as the current logged on user, and stop mining if configured to in the settings
 - [X] Monitor CPU usage and stop non-Idle mining if over a set threshold
 - [ ] GUI to easily modify configuration JSON
 - [ ] Average the CPU usage over a period of time longer than 1s, and stop programs if usage is too high while not idle
