@@ -13,6 +13,7 @@ namespace idleMon
     {
         public static long minutesIdle = 10;
         public static bool lastState;
+        public static List<string> ignoredFullscreenApps = new List<string>();
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
@@ -48,7 +49,7 @@ namespace idleMon
 
         public static string IsForegroundFullScreen(System.Windows.Forms.Screen screen)
         {
-            string fullscreenApp;
+            string fullscreenApp = "";
 
             if (screen == null)
             {
@@ -65,16 +66,14 @@ namespace idleMon
                 uint procId = 0;
                 GetWindowThreadProcessId(hWnd, out procId);
                 var proc = System.Diagnostics.Process.GetProcessById((int)procId);
-                
-                if (proc.ProcessName == "explorer")
-                    return string.Empty;
 
-                if (proc.ProcessName == "LockApp")
+                if (Utilities.ignoredFullscreenApps.Contains(proc.ProcessName))
                     return string.Empty;
+                
+                if (proc.ProcessName != fullscreenApp)
+                    Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);
 
                 fullscreenApp = proc.ProcessName;
-
-                Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);
 
                 return fullscreenApp;
             }

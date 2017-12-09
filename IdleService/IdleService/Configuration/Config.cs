@@ -27,8 +27,10 @@ namespace IdleService
         internal static bool computerIsLocked { get; set; }
         internal static int  currentSessionId { get; set; }
         internal static int  skipTimerCycles { get; set; }
+        internal static int  sessionLaunchAttempts { get; set; }
 
-        internal static int sessionLaunchAttempts { get; set; }
+        private static int   cpuQueueLimit = 10;
+        internal static Queue<int> cpuUsageQueue = new Queue<int>();
 
         //Hashrate monitoring
         /*
@@ -41,11 +43,14 @@ namespace IdleService
         internal static readonly object startLock = new object();
         internal static readonly object timeLock = new object();
         
-        public static void LoadConfigFromFile (string jsonFilePath)
+        public static void LoadConfigFromFile (string jsonFilePath = "")
         {
             //Create a temporary Settings object
             Settings settingsJson = new Settings();
-            
+
+            if (jsonFilePath.Length == 0)
+                jsonFilePath = Utilities.ApplicationPath() + "MinerService.json";
+
             //If the passed file path does not exist, load defaults and save them to file
             if (!File.Exists(jsonFilePath))
             {
@@ -74,11 +79,16 @@ namespace IdleService
             configInitialized = true;
         }
 
-        public static void WriteConfigToFile(string jsonFilePath)
+        public static void WriteConfigToFile(string jsonFilePath = "")
         {
+
+            if (jsonFilePath.Length == 0)
+                jsonFilePath = Utilities.ApplicationPath() + "MinerService.json";
+
             try
             {
                 File.WriteAllText(jsonFilePath, JsonConvert.SerializeObject(settings, Formatting.Indented));
+                Utilities.Log("Saved " + jsonFilePath + ".");
             }
             catch (Exception ex)
             {
@@ -98,7 +108,7 @@ namespace IdleService
             configInitialized = true;
 
             //Write the defaults to file
-            WriteConfigToFile("MinerService.json");
+            WriteConfigToFile();
 
         }
 
@@ -170,5 +180,17 @@ namespace IdleService
 
             return true;
         }
+
+        public static void AddCpuTempQueue(int percent)
+        {
+            //We only want to keep x number of items, so if we go over/up to, remove the oldest one
+            if (cpuUsageQueue.Count >= cpuQueueLimit)
+                cpuUsageQueue.Dequeue();
+
+            cpuUsageQueue.Enqueue(percent); //add the new usage percentage to the queue
+        }
+
+        //This is new to me. It was a Intellisense suggestion. I like it.
+        public static int CpuTempAverage() => Convert.ToInt32(cpuUsageQueue.Average());
     }
 }

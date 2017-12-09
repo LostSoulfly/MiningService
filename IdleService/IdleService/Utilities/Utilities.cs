@@ -103,7 +103,9 @@ namespace IdleService
                 System.Threading.Thread.Sleep(1000);
                 int cpuPercent = (int)cpuCounter.NextValue();
 
-                Debug("CPU Usage percent: " + cpuPercent);
+                //Add to the rolling average of CPU temps
+                Config.AddCpuTempQueue(cpuPercent);
+
                 return cpuPercent;
             }
             catch (Exception ex)

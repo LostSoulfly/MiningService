@@ -29,7 +29,8 @@ namespace IdleMon
             Log,
             Fullscreen,
             IdleTime,
-            Message
+            Message,
+            IgnoreFullscreenApp
         }
 
         public static bool stealthMode = false;
@@ -40,6 +41,7 @@ namespace IdleMon
         private ContextMenuStrip TrayIconContextMenu;
         private ToolStripMenuItem CloseMenuItem;
         private ToolStripMenuItem PauseMenuItem;
+        private ToolStripMenuItem IgnoreFullscreenMenuItem;
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
@@ -52,6 +54,8 @@ namespace IdleMon
         private bool monitorFullscreen;
         private bool fullscreenDetected;
         private bool connectedToService;
+        private int  fullscreenDelay;
+        private string fullscreenAppName;
 
         public IdleMonContext()
         {
@@ -97,13 +101,30 @@ namespace IdleMon
 
             if (fullscreenApp == string.Empty)
             {
-                fullscreenDetected = false;
+                if (fullscreenDetected == true)
+                {
+                    fullscreenDelay = (60000 / (int)fullscreenTimer.Interval); //should always be a 1 minute interval, even if we change the fullscreenTimer
+                    fullscreenDetected = false;
+                    return;
+                }
             } else
             {
                 fullscreenDetected = true;
+                fullscreenAppName = fullscreenApp;
+                TrayIconContextMenu.SuspendLayout();
+                this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + fullscreenAppName;
+                this.IgnoreFullscreenMenuItem.Visible = true;
+                TrayIconContextMenu.ResumeLayout(true);
+                TrayIcon.ContextMenuStrip = TrayIconContextMenu;
             }
 
-            SendPipeMessage(PacketID.Fullscreen, fullscreenDetected, fullscreenApp);
+            if (fullscreenDelay <= 0)
+            {
+                SendPipeMessage(PacketID.Fullscreen, fullscreenDetected, fullscreenApp);
+            } else
+            {
+                fullscreenDelay--; //subtract 1 from the current delay before updating the service of fullscreen status
+            }
         }
 
         private void InitializeComponent()
@@ -125,11 +146,12 @@ namespace IdleMon
             TrayIconContextMenu = new ContextMenuStrip();
             CloseMenuItem = new ToolStripMenuItem();
             PauseMenuItem = new ToolStripMenuItem();
+            IgnoreFullscreenMenuItem = new ToolStripMenuItem();
             TrayIconContextMenu.SuspendLayout();
 
             // TrayIconContextMenu
             this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] {
-                this.CloseMenuItem, this.PauseMenuItem});
+                this.CloseMenuItem, this.PauseMenuItem, this.IgnoreFullscreenMenuItem});
             this.TrayIconContextMenu.Name = "TrayIconContextMenu";
             this.TrayIconContextMenu.Size = new Size(153, 70);
 
@@ -144,12 +166,28 @@ namespace IdleMon
             this.PauseMenuItem.Size = new Size(152, 22);
             this.PauseMenuItem.Text = "Pause mining";
             this.PauseMenuItem.Click += new EventHandler(this.PauseMenuItem_Click);
-           
+
+            // IgnoreFullscreenMenuItem
+            this.IgnoreFullscreenMenuItem.Name = "IgnoreFullscreenMenuItem";
+            this.IgnoreFullscreenMenuItem.Size = new Size(152, 22);
+            this.IgnoreFullscreenMenuItem.Text = "Ignore Fullscreen App: ";
+            this.IgnoreFullscreenMenuItem.Click += new EventHandler(this.IgnoreFullscreenMenuItem_Click);
+            this.IgnoreFullscreenMenuItem.Visible = false;
 
             TrayIconContextMenu.ResumeLayout(false);
             TrayIcon.ContextMenuStrip = TrayIconContextMenu;
             
             TrayIcon.Visible = true;
+        }
+
+        private void IgnoreFullscreenMenuItem_Click(object sender, EventArgs e)
+        {
+
+            SendPipeMessage(PacketID.IgnoreFullscreenApp, true, fullscreenAppName);
+
+            Utilities.ignoredFullscreenApps.Add(fullscreenAppName);
+
+            this.IgnoreFullscreenMenuItem.Visible = false;
         }
 
         private void OnApplicationExit(object sender, EventArgs e)
@@ -346,6 +384,11 @@ namespace IdleMon
                         }
                     break;
 
+                case ((int)PacketID.Stop):
+                    
+                    StopIdleMon();
+                    break;
+
                 case ((int)PacketID.Fullscreen):
                     if (message.isIdle)
                     {
@@ -353,6 +396,12 @@ namespace IdleMon
                         fullscreenTimer.Start();
                         Utilities.Log("Fullscreen monitoring initialized.");
                     }
+                    break;
+
+                case ((int)PacketID.IgnoreFullscreenApp):
+
+                    Utilities.ignoredFullscreenApps.Add(message.data);
+                    Utilities.Log("Received IgnoreFullscreenApp: " + message.data);
                     break;
 
                 case ((int)PacketID.Hello):

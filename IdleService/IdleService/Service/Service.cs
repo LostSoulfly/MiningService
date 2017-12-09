@@ -33,7 +33,8 @@ namespace IdleService
             Log,
             Fullscreen,
             IdleTime,
-            Message
+            Message,
+            IgnoreFullscreenApp
         }
 
         #region Json API for XMR-STAK-CPU only
@@ -247,11 +248,25 @@ namespace IdleService
 
                 case ((int)PacketID.Stop):
 
-                    //stop all service timers and etc
-                    Stop();
+                    client.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Stop,
+                        isIdle = false,
+                        requestId = (int)PacketID.None,
+                        data = ""
+                    });
 
-                    //actually call host.Stop
+                    System.Threading.Thread.Sleep(3000);  //Give IdleMon 3 seconds to stop running and clear its tray icon.
+                    
                     Abort();
+
+                    break;
+
+                case ((int)PacketID.IgnoreFullscreenApp):
+
+                    Config.settings.ignoredFullscreenApps.Add(message.data);
+
+                    Config.WriteConfigToFile();
 
                     break;
 
@@ -316,6 +331,17 @@ namespace IdleService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
+
+                    foreach (var app in Config.settings.ignoredFullscreenApps)
+                    {
+                        connection.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.IgnoreFullscreenApp,
+                            isIdle = false,
+                            requestId = (int)PacketID.None,
+                            data = app
+                        });
+                    }
 
                     if (Config.isMiningPaused)
                     {
@@ -599,16 +625,18 @@ namespace IdleService
                     return;
                 }
 
-                Utilities.Debug("isUserIdle: " + Config.isUserIdle);
+                Utilities.GetCpuUsage();
+
+                Utilities.Debug("CpuTempAverage: " + Config.CpuTempAverage());
 
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))
                 {   
                     //If our CPU threshold is over 0, and CPU usage is over that, then stop mining and skip the next 6 timer cycles
-                    if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Utilities.GetCpuUsage() > Config.settings.cpuUsageThresholdWhileNotIdle))
+                    if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Config.CpuTempAverage() > Config.settings.cpuUsageThresholdWhileNotIdle))
                     {
                         Utilities.KillMiners();
-                        Config.skipTimerCycles = 6;
+                        Config.skipTimerCycles = 12;
 
                         client.PushMessage(new IdleMessage
                         {

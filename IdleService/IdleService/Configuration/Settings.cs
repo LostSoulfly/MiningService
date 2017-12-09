@@ -44,7 +44,8 @@ namespace IdleService
         public int minutesUntilIdle { get; set; }
         //[JsonProperty]
         //public int resumePausedMiningAfterMinutes { get; set; }
-
+        [JsonProperty]
+        public List<string> ignoredFullscreenApps = new List<string>();
 
         [JsonProperty]
         public List<MinerList> cpuMiners = new List<MinerList>();
@@ -72,6 +73,8 @@ namespace IdleService
             //resumePausedMiningAfterMinutes = 120;
             cpuMiners.Add(new MinerList("xmrig.exe", "-o SERVER:PORT -u MONEROADDRESS -p x -k --safe", "-o SERVER:PORT -u MONEROADDRESS -p x -k --max-cpu-usage=30", true));
             gpuMiners.Add(new MinerList("miner.exe", "--server SERVER --port PORT --user EQUIHASHADDRESS --pass x --cuda_devices 0 --fee 0", "", false));
+            ignoredFullscreenApps.Add("explorer");
+            ignoredFullscreenApps.Add("LockApp");
         }
     }
 }
