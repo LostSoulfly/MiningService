@@ -13,6 +13,7 @@ namespace idleMon
     {
         public static long minutesIdle = 10;
         public static bool lastState;
+        public static string fullscreenAppName;
         public static List<string> ignoredFullscreenApps = new List<string>();
 
         [StructLayout(LayoutKind.Sequential)]
@@ -70,7 +71,7 @@ namespace idleMon
                 if (Utilities.ignoredFullscreenApps.Contains(proc.ProcessName))
                     return string.Empty;
                 
-                if (proc.ProcessName != fullscreenApp)
+                if (proc.ProcessName != Utilities.fullscreenAppName)
                     Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);
 
                 fullscreenApp = proc.ProcessName;

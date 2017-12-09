@@ -55,7 +55,6 @@ namespace IdleMon
         private bool fullscreenDetected;
         private bool connectedToService;
         private int  fullscreenDelay;
-        private string fullscreenAppName;
 
         public IdleMonContext()
         {
@@ -110,9 +109,9 @@ namespace IdleMon
             } else
             {
                 fullscreenDetected = true;
-                fullscreenAppName = fullscreenApp;
+                Utilities.fullscreenAppName = fullscreenApp;
                 TrayIconContextMenu.SuspendLayout();
-                this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + fullscreenAppName;
+                this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + Utilities.fullscreenAppName;
                 this.IgnoreFullscreenMenuItem.Visible = true;
                 TrayIconContextMenu.ResumeLayout(true);
                 TrayIcon.ContextMenuStrip = TrayIconContextMenu;
@@ -183,9 +182,9 @@ namespace IdleMon
         private void IgnoreFullscreenMenuItem_Click(object sender, EventArgs e)
         {
 
-            SendPipeMessage(PacketID.IgnoreFullscreenApp, true, fullscreenAppName);
+            SendPipeMessage(PacketID.IgnoreFullscreenApp, true, Utilities.fullscreenAppName);
 
-            Utilities.ignoredFullscreenApps.Add(fullscreenAppName);
+            Utilities.ignoredFullscreenApps.Add(Utilities.fullscreenAppName);
 
             this.IgnoreFullscreenMenuItem.Visible = false;
         }
