@@ -627,13 +627,13 @@ namespace IdleService
 
                 Utilities.GetCpuUsage();
 
-                Utilities.Debug("CpuTempAverage: " + Config.CpuTempAverage());
+                Utilities.Debug("CpuUsageAverage: " + Config.CpuUsageAverage());
 
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))
                 {   
                     //If our CPU threshold is over 0, and CPU usage is over that, then stop mining and skip the next 6 timer cycles
-                    if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Config.CpuTempAverage() > Config.settings.cpuUsageThresholdWhileNotIdle))
+                    if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Config.CpuUsageAverage() > Config.settings.cpuUsageThresholdWhileNotIdle))
                     {
                         Utilities.KillMiners();
                         Config.skipTimerCycles = 12;

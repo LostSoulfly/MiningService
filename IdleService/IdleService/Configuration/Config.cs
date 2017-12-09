@@ -181,7 +181,7 @@ namespace IdleService
             return true;
         }
 
-        public static void AddCpuTempQueue(int percent)
+        public static void AddCpuUsageQueue(int percent)
         {
             //We only want to keep x number of items, so if we go over/up to, remove the oldest one
             if (cpuUsageQueue.Count >= cpuQueueLimit)
@@ -191,6 +191,6 @@ namespace IdleService
         }
 
         //This is new to me. It was a Intellisense suggestion. I like it.
-        public static int CpuTempAverage() => Convert.ToInt32(cpuUsageQueue.Average());
+        public static int CpuUsageAverage() => Convert.ToInt32(cpuUsageQueue.Average());
     }
 }

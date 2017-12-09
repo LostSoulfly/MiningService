@@ -104,7 +104,7 @@ namespace IdleService
                 int cpuPercent = (int)cpuCounter.NextValue();
 
                 //Add to the rolling average of CPU temps
-                Config.AddCpuTempQueue(cpuPercent);
+                Config.AddCpuUsageQueue(cpuPercent);
 
                 return cpuPercent;
             }
@@ -173,7 +173,7 @@ namespace IdleService
                     miner.launchAttempts = 0;
                 }
             }
-            Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
+            //Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
             return areMinersRunning;
         }
 
