@@ -32,24 +32,23 @@ namespace idleMon
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
-        public static bool IsForegroundFullScreen()
+        public static string IsForegroundFullScreen()
         {
+            string fullscreenApp;
             //check each screen on the system
             System.Windows.Forms.Screen[] screen = System.Windows.Forms.Screen.AllScreens;
             foreach (var item in screen)
             {
-                if (IsForegroundFullScreen(item))
-                {
-                    Utilities.Log("Fullscreen detected:");
-                    return true;
-                }
+                fullscreenApp = IsForegroundFullScreen(item);
+                return fullscreenApp;
             }
             return IsForegroundFullScreen(null);
         }
 
 
-        public static bool IsForegroundFullScreen(System.Windows.Forms.Screen screen)
+        public static string IsForegroundFullScreen(System.Windows.Forms.Screen screen)
         {
+            string fullscreenApp;
 
             if (screen == null)
             {
@@ -66,16 +65,19 @@ namespace idleMon
                 uint procId = 0;
                 GetWindowThreadProcessId(hWnd, out procId);
                 var proc = System.Diagnostics.Process.GetProcessById((int)procId);
+                
+                if (proc.ProcessName == "explorer")
+                    return string.Empty;
+
+                fullscreenApp = proc.ProcessName;
 
                 Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);
-                if (proc.ProcessName == "explorer")
-                    return false;
 
-                return true;
+                return fullscreenApp;
             }
             else
             {
-                return false;
+                return string.Empty;
             }
             
         }

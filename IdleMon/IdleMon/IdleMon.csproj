@@ -89,7 +89,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy $(TargetFileName) ..\..\..\..\Build\IdleMon.exe
+    <PostBuildEvent>mkdir ..\..\..\..\Build\
+copy $(TargetFileName) ..\..\..\..\Build\IdleMon.exe
 </PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>

@@ -43,7 +43,7 @@ namespace IdleMon
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
         private System.Timers.Timer timer = new System.Timers.Timer(5000);
-        private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(20000);
+        private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(10000);
 
         private bool lowOnly;
         private bool sentFirstTime;
@@ -91,7 +91,18 @@ namespace IdleMon
 
         private void OnFullscreenTimer(object sender, ElapsedEventArgs e)
         {
-            fullscreenDetected = Utilities.IsForegroundFullScreen();
+            string fullscreenApp;
+            fullscreenApp = Utilities.IsForegroundFullScreen();
+
+            if (fullscreenApp == string.Empty)
+            {
+                fullscreenDetected = false;
+            } else
+            {
+                fullscreenDetected = true;
+            }
+
+            SendPipeMessage(PacketID.Fullscreen, fullscreenDetected, fullscreenApp);
         }
 
         private void InitializeComponent()
@@ -240,12 +251,14 @@ namespace IdleMon
                 }
             }
 
+            /*
             if (!miningPaused && fullscreenDetected)
             {
                 
-                SendPipeMessage(PacketID.Pause, _isIdle, Environment.UserName);
+                SendPipeMessage(PacketID.Fullscreen, true, Environment.UserName);
                 sentFirstTime = false;
             }
+            */
 
             //If isIdle is the same as the lastState we sent, exit, unless we didn't send the first message yet.
             if (_isIdle == Utilities.lastState && sentFirstTime)
@@ -316,8 +329,6 @@ namespace IdleMon
                     break;
 
                 case ((int)PacketID.Log):
-                    Utilities.Log("Log received from IdleService.");
-
                     if (message.isIdle)
                     {
                         enableLogging = message.isIdle;
@@ -326,8 +337,6 @@ namespace IdleMon
                     break;
 
                 case ((int)PacketID.Fullscreen):
-                    Utilities.Log("Fullscreen received from IdleService.");
-
                     if (message.isIdle)
                     {
                         monitorFullscreen = message.isIdle;
