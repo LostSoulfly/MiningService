@@ -11,6 +11,14 @@ First, download the newest version from the Releases page, or compile it yoursel
 Run IdleService.exe once, so it can generate the default MinerService.json configuration file.
 Open MinerService.json in a text editor (Notepad ++ recommended), and edit the settings to your liking.
 
+After modifying the settings, you can test them by running IdleService.exe. This will cause it to run as a Console window.
+After you are satisfied that your settings work, run `install.bat` to install IdleService as a Windows service, and then run `start.bat` to start the IdleService. If things went well, you should see a notifaction above your taskbar icons telling you that it is running.
+
+If you want to stop the service, run `stop.bat`. You can also use an elevated command prompt for all of these.
+`IdleService.exe start`
+`IdleService.exe stop`
+`IdleService.exe uninstall`. Or with the Service Control manager built into Windows: `sc start IdleService` `sc stop IdleService`.
+
 #### MinerService.json
 Below CPU miner is XMRIG, and GPU miner is EWBF.
 ```
