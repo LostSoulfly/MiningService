@@ -5,10 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-
 namespace idleMon
 {
-    class Utilities
+    internal class Utilities
     {
         public static long minutesIdle = 10;
         public static bool lastState;
@@ -46,7 +45,6 @@ namespace idleMon
             return IsForegroundFullScreen(null);
         }
 
-
         public static string IsForegroundFullScreen(System.Windows.Forms.Screen screen)
         {
             string fullscreenApp = "";
@@ -57,9 +55,9 @@ namespace idleMon
             }
             RECT rect = new RECT();
             IntPtr hWnd = (IntPtr)GetForegroundWindow();
-            
+
             GetWindowRect(new HandleRef(null, hWnd), ref rect);
-            
+
             if (screen.Bounds.Width == (rect.right - rect.left) && screen.Bounds.Height == (rect.bottom - rect.top))
             {
                 //get process information of foreground app
@@ -69,7 +67,7 @@ namespace idleMon
 
                 if (Utilities.ignoredFullscreenApps.Contains(proc.ProcessName))
                     return string.Empty;
-                
+
                 if (proc.ProcessName != Utilities.fullscreenAppName)
                     Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);
 
@@ -81,7 +79,6 @@ namespace idleMon
             {
                 return string.Empty;
             }
-            
         }
 
         public static void Log(string text)
@@ -91,25 +88,23 @@ namespace idleMon
 
             try
             {
-                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString()
-                        + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
+                File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString()
+                    + " (" + Process.GetCurrentProcess().Id + "): " + text + System.Environment.NewLine);
             }
             catch
             {
-
             }
-
         }
-        
+
         public static bool IsIdle() //In minutes
         {
             TimeSpan idleTime = TimeSpan.FromMilliseconds(IdleTimeFinder.GetIdleTime());
-            
+
             TimeSpan timeUntilIdle = TimeSpan.FromMinutes(minutesIdle);
-            
+
             if (TimeSpan.Compare(idleTime, timeUntilIdle) >= 0)
                 return true;
-            
+
             return false;
         }
 
@@ -122,6 +117,7 @@ namespace idleMon
         }
 
         #region ApplicationPath
+
         public static string ApplicationPath()
         {
             return PathAddBackslash(AppDomain.CurrentDomain.BaseDirectory);
@@ -155,7 +151,8 @@ namespace idleMon
                 return Path.AltDirectorySeparatorChar;
             }
         }
-        #endregion
+
+        #endregion ApplicationPath
 
         /// <summary>
         /// Helps to find the idle time, (in milliseconds) spent since the last user input
@@ -178,6 +175,7 @@ namespace idleMon
 
                 return ((uint)Environment.TickCount - lastInPut.dwTime);
             }
+
             /// <summary>
             /// Get the Last input time in milliseconds
             /// </summary>
@@ -193,6 +191,5 @@ namespace idleMon
                 return lastInPut.dwTime;
             }
         }
-
     }
 }

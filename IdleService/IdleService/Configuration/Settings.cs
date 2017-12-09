@@ -1,47 +1,58 @@
 ﻿using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace IdleService
 {
-    class Settings
+    internal class Settings
     {
         //Settings loaded from config file
         [JsonProperty]
         public bool enableDebug { get; set; }
+
         [JsonProperty]
         public bool enableLogging { get; set; }
+
         [JsonProperty]
         public bool monitorFullscreen { get; set; }
+
         //[JsonProperty]
         //public bool stealthMode { get; set; }
         [JsonProperty]
         public bool preventSleep { get; set; }
+
         [JsonProperty]
         public bool monitorCpuTemp { get; set; }
+
         [JsonProperty]
         public bool mineWithCpu { get; set; }
+
         [JsonProperty]
         public int maxCpuTemp { get; set; }
+
         [JsonProperty]
         public int cpuUsageThresholdWhileNotIdle { get; set; }
+
         [JsonProperty]
         public bool monitorGpuTemp { get; set; }
+
         [JsonProperty]
         public bool mineWithGpu { get; set; }
+
         [JsonProperty]
         public int maxGpuTemp { get; set; }
+
         [JsonProperty]
         public bool mineIfBatteryNotFull { get; set; }
+
         [JsonProperty]
         public bool verifyNetworkConnectivity { get; set; }
+
         [JsonProperty]
         public string urlToCheckForNetwork { get; set; }
+
         [JsonProperty]
         public int minutesUntilIdle { get; set; }
+
         //[JsonProperty]
         //public int resumePausedMiningAfterMinutes { get; set; }
         [JsonProperty]
@@ -49,9 +60,10 @@ namespace IdleService
 
         [JsonProperty]
         public List<MinerList> cpuMiners = new List<MinerList>();
+
         [JsonProperty]
         public List<MinerList> gpuMiners = new List<MinerList>();
-        
+
         public void SetupDefaultConfig()
         {
             enableDebug = false;

@@ -15,7 +15,7 @@ namespace IdleService
         private const uint INVALID_SESSION_ID = 0xFFFFFFFF;
         private static readonly IntPtr WTS_CURRENT_SERVER_HANDLE = IntPtr.Zero;
 
-        #endregion
+        #endregion Win32 Constants
 
         #region DllImports
 
@@ -66,7 +66,7 @@ namespace IdleService
             ref IntPtr ppSessionInfo,
             ref int pCount);
 
-        #endregion
+        #endregion DllImports
 
         #region Win32 Structs
 
@@ -159,7 +159,7 @@ namespace IdleService
             public readonly WTS_CONNECTSTATE_CLASS State;
         }
 
-        #endregion
+        #endregion Win32 Structs
 
         // Gets the user token from the currently active session
         private static bool GetSessionUserToken(ref IntPtr phUserToken)
@@ -237,7 +237,7 @@ namespace IdleService
             {
                 activeSessionId = WTSGetActiveConsoleSessionId();
             }
-            
+
             return (int)activeSessionId;
         }
 
@@ -248,7 +248,7 @@ namespace IdleService
             var procInfo = new PROCESS_INFORMATION();
             var pEnv = IntPtr.Zero;
             int iResultOfCreateProcessAsUser;
-            
+
             startInfo.cb = Marshal.SizeOf(typeof(STARTUPINFO));
 
             try
@@ -298,6 +298,5 @@ namespace IdleService
 
             return true;
         }
-
     }
 }

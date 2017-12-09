@@ -8,21 +8,22 @@ using System.Windows.Forms;
 
 namespace IdleService
 {
-    static class Utilities
+    internal static class Utilities
     {
         #region Public variables
-        
+
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.1.0a";
-        
-#endregion
+
+        #endregion Public variables
 
         #region DLLImports and enums (ThreadExecutionState, WTSQuerySession)
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        static extern EXECUTION_STATE SetThreadExecutionState(
-        EXECUTION_STATE flags);
-        [Flags]
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern EXECUTION_STATE SetThreadExecutionState(
+        EXECUTION_STATE flags);
+
+        [Flags]
         public enum EXECUTION_STATE : uint
         {
             ES_SYSTEM_REQUIRED = 0x00000001,
@@ -32,6 +33,7 @@ namespace IdleService
 
         [DllImport("Wtsapi32.dll")]
         private static extern bool WTSQuerySessionInformation(IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass, out System.IntPtr ppBuffer, out int pBytesReturned);
+
         [DllImport("Wtsapi32.dll")]
         private static extern void WTSFreeMemory(IntPtr pointer);
 
@@ -63,14 +65,16 @@ namespace IdleService
             WTSClientInfo,
             WTSSessionInfo,
         }
-        #endregion
+
+        #endregion DLLImports and enums (ThreadExecutionState, WTSQuerySession)
 
         #region Check for network connection/MinerProxy server status
+
         public static bool CheckForInternetConnection()
         {
             //This is called to verify network connectivity, I personally use a MinerProxy instance's built-in web server API at /status, which returns "True".
             //In theory, anything that actually loads should work.
-            
+
             try
             {
                 using (var client = new System.Net.WebClient())
@@ -86,9 +90,11 @@ namespace IdleService
                 return false;
             }
         }
-        #endregion
+
+        #endregion Check for network connection/MinerProxy server status
 
         #region CPU utils
+
         //todo: Get CPU temperature function
         public static int GetCpuUsage()
         {
@@ -111,11 +117,14 @@ namespace IdleService
                 return 50;
             }
         }
-        #endregion
+
+        #endregion CPU utils
 
         #region GPU utils
+
         //todo: Get GPU temperatures
-        #endregion
+
+        #endregion GPU utils
 
         #region Process utilities
 
@@ -142,7 +151,7 @@ namespace IdleService
 
             if (proc.Length == 0)
                 return false;
-            
+
             return true;
         }
 
@@ -155,7 +164,7 @@ namespace IdleService
             foreach (var miner in miners)
             {
                 Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
-                
+
                 if (miner.isMiningIdleSpeed != isUserIdle && miner.shouldMinerBeRunning)
                 {
                     Utilities.Debug("Miner " + miner.executable + " is not running in correct mode!");
@@ -165,7 +174,8 @@ namespace IdleService
                 if (proc.Length == 0)
                 {
                     areMinersRunning = false;
-                } else
+                }
+                else
                 {
                     miner.launchAttempts = 0;
                 }
@@ -193,7 +203,6 @@ namespace IdleService
         //This one accepts a MinerList as the passed argument, and uses the Executable and Arguments of that particular miner.
         public static int LaunchProcess(MinerList miner)
         {
-
             if (miner.minerDisabled)
                 return 0;
 
@@ -202,7 +211,7 @@ namespace IdleService
 
             if (arguments.Length == 0)
                 return 0;
-            
+
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.RedirectStandardOutput = false;
             psi.RedirectStandardError = false;
@@ -210,7 +219,6 @@ namespace IdleService
 
             Process proc = new Process();
             proc.StartInfo = psi;
-
 
             Debug("Starting Process " + miner.executable + " " + arguments);
 
@@ -233,8 +241,8 @@ namespace IdleService
                 isRunning = IsProcessRunning(miner);
                 Debug("shouldMinerBeRunning: " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts: " + miner.launchAttempts);
 
-                if ((miner.shouldMinerBeRunning && !miner.minerDisabled) && 
-                    (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) && 
+                if ((miner.shouldMinerBeRunning && !miner.minerDisabled) &&
+                    (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) &&
                     miner.launchAttempts <= 4 && !Config.isMiningPaused)
                 {
                     if (LaunchProcess(miner) <= 0)  //returns PID
@@ -244,11 +252,12 @@ namespace IdleService
                     }
                     miner.shouldMinerBeRunning = true;
                     miner.isMiningIdleSpeed = Config.isUserIdle;
-
-                } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
+                }
+                else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
                 {
                     miner.launchAttempts = 0;
-                } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts > 4 && !miner.minerDisabled)
+                }
+                else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts > 4 && !miner.minerDisabled)
                 {
                     Log("Miner " + miner.executable + " has failed to launch 5 times, and is now disabled.");
                     miner.minerDisabled = true;
@@ -257,11 +266,10 @@ namespace IdleService
 
             Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
 
-
             Config.isCurrentlyMining = true;
             return !launchIssues;
         }
-        
+
         public static void MinersShouldBeRunning(List<MinerList> minerList)
         {
             foreach (var miner in minerList)
@@ -269,11 +277,12 @@ namespace IdleService
                 if ((!miner.minerDisabled && miner.launchAttempts < 4) && (miner.mineWhileNotIdle || Config.isUserIdle) && !Config.isMiningPaused)
                 {
                     miner.shouldMinerBeRunning = true;
-                } else
+                }
+                else
                 {
                     miner.shouldMinerBeRunning = false;
                 }
-                    miner.isMiningIdleSpeed = false;
+                miner.isMiningIdleSpeed = false;
             }
         }
 
@@ -343,9 +352,9 @@ namespace IdleService
 
             //if we can't kill one of the processes, we should return FALSE!
             return !cantKillProcess;
-            
         }
-        #endregion
+
+        #endregion Process utilities
 
         #region System/OS Utils
 
@@ -415,7 +424,7 @@ namespace IdleService
             //Returns true if the computer is 64bit
             return (System.Environment.Is64BitOperatingSystem);
         }
-        
+
         public static void AllowSleep()
         {
             //this sets the ThreadExecutionState to allow the computer to sleep.
@@ -429,18 +438,19 @@ namespace IdleService
             SetThreadExecutionState(
               EXECUTION_STATE.ES_SYSTEM_REQUIRED |
               EXECUTION_STATE.ES_CONTINUOUS);
-
         }
-#endregion
-        
+
+        #endregion System/OS Utils
+
         #region Battery utils
+
         public static bool IsBatteryFull()
         {
             System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
-            
+
             float floatBatteryPercent = 100 * SystemInformation.PowerStatus.BatteryLifePercent;
             int batteryPercent = (int)floatBatteryPercent;
-            
+
             if (pw.BatteryChargeStatus.HasFlag(BatteryChargeStatus.NoSystemBattery))
                 return true;
 
@@ -453,18 +463,19 @@ namespace IdleService
         public static bool DoesBatteryExist()
         {
             System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
-            
+
             if (pw.BatteryChargeStatus == BatteryChargeStatus.NoSystemBattery)
                 return false;
 
             return true;
         }
-#endregion
+
+        #endregion Battery utils
 
         #region Logging
+
         public static void Log(string text, bool force = false)
         {
-
             if (!IsSystem())
                 Console.WriteLine(DateTime.Now.ToString() + " LOG: " + text);
 
@@ -475,7 +486,6 @@ namespace IdleService
             }
             catch
             {
-
             }
         }
 
@@ -491,12 +501,13 @@ namespace IdleService
             }
             catch
             {
-
             }
         }
-        #endregion
+
+        #endregion Logging
 
         #region ApplicationPath
+
         public static string ApplicationPath()
         {
             return PathAddBackslash(AppDomain.CurrentDomain.BaseDirectory);
@@ -530,7 +541,7 @@ namespace IdleService
                 return Path.AltDirectorySeparatorChar;
             }
         }
-#endregion
+
+        #endregion ApplicationPath
     }
 }
-

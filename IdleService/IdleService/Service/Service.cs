@@ -1,16 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Message;
 using Microsoft.Win32;
-using Topshelf;
-using System.Timers;
 using NamedPipeWrapper;
-using Message;
+using System;
+using System.Collections.Generic;
+using System.Timers;
+using Topshelf;
 
 namespace IdleService
 {
-    class MyService
+    internal class MyService
     {
-
         public enum PacketID
         {
             None,
@@ -29,6 +28,7 @@ namespace IdleService
         }
 
         #region Json API for XMR-STAK-CPU only
+
         public class Hashrate
         {
             public List<List<double?>> threads { get; set; }
@@ -61,18 +61,21 @@ namespace IdleService
             public Results results { get; set; }
             public Connection connection { get; set; }
         }
-        #endregion
+
+        #endregion Json API for XMR-STAK-CPU only
 
         //TopShelf service controller
         private HostControl host;
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
         internal NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
+
         private Timer minerTimer = new Timer(5000);
         private Timer sessionTimer = new Timer(10000);
         //private Timer apiCheckTimer = new Timer(10000);
-        
+
         #region TopShelf Start/Stop/Abort
+
         public bool Start(HostControl hc)
         {
             Utilities.Log("Starting IdleService: " + Utilities.version);
@@ -95,7 +98,8 @@ namespace IdleService
                 {
                     Config.doesBatteryExist = true;
                     Utilities.Log("Battery found. IsBatteryFull: " + Utilities.IsBatteryFull());
-                } else
+                }
+                else
                 {
                     Utilities.Debug("No battery found.");
                 }
@@ -106,12 +110,12 @@ namespace IdleService
 
                 minerTimer.AutoReset = true;
 
-                //setup the NamedPipeClient and events 
+                //setup the NamedPipeClient and events
                 client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
                 client.ServerMessage += OnServerMessage;
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
-                
+
                 Utilities.Log("IdleService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
             }
@@ -143,7 +147,6 @@ namespace IdleService
 
         public void Stop()
         {
-
             Utilities.Log("Stopping IdleService..");
             minerTimer.Stop();
             sessionTimer.Stop();
@@ -164,10 +167,11 @@ namespace IdleService
         {
             host.Stop();
         }
-        
-        #endregion
+
+        #endregion TopShelf Start/Stop/Abort
 
         #region NamedPipe Events
+
         private void OnServerDisconnect(NamedPipeConnection<IdleMessage, IdleMessage> connection)
         {
             Utilities.Log("IdleService Pipe disconnected");
@@ -181,7 +185,6 @@ namespace IdleService
 
             client.Stop();
             client.Start();
-            
         }
 
         private void OnServerMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
@@ -248,7 +251,7 @@ namespace IdleService
                     });
 
                     System.Threading.Thread.Sleep(3000);  //Give IdleMon 3 seconds to stop running and clear its tray icon.
-                    
+
                     Abort();
 
                     break;
@@ -288,7 +291,7 @@ namespace IdleService
                 case ((int)PacketID.Hello):
                     Utilities.Log("idleMon user " + message.data + " connected.");
                     Config.isUserIdle = message.isIdle;
-                    
+
                     connection.PushMessage(new IdleMessage
                     {
                         packetId = (int)PacketID.Log,
@@ -296,7 +299,7 @@ namespace IdleService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
-                    
+
                     /*
                     connection.PushMessage(new IdleMessage
                     {
@@ -362,8 +365,9 @@ namespace IdleService
                     break;
             }
         }
-#endregion
-        
+
+        #endregion NamedPipe Events
+
         public void SessionChanged(SessionChangedArguments args)
         {
             lock (Config.timeLock)
@@ -427,9 +431,7 @@ namespace IdleService
                 Config.fullscreenDetected = false;
                 Utilities.KillMiners();
                 Utilities.KillProcess(Config.idleMonExecutable);
-
             }
-
         }
 
         private void OnPowerChange(object sender, PowerModeChangedEventArgs e)
@@ -455,8 +457,9 @@ namespace IdleService
                     break;
             }
         }
-        
+
         #region Old API Json reading section (not used)
+
         /*
         private async Task<String> getTestObjects(string url)
         {
@@ -468,10 +471,8 @@ namespace IdleService
             return result;
         }
 
-        
         private void OnApiTimer(object sender, ElapsedEventArgs e)
         {
-
             //this timer is disabled, but just in case let's return out of it asap as it's not setup for xmrig
             return;
 
@@ -494,32 +495,30 @@ namespace IdleService
                 else
                     failUptime = 0;
 
-                
                 //if (test.hashrate.total.Average() <= 5)
                 //    failHashrate++;
                 //else
                 //    failHashrate = 0;
-                
 
                 if (failUptime >= 5 || failHashrate >= 5)
                 {
                     failUptime = 0;
                     failHashrate = 0;
                     Utilities.KillProcess();
-
                 }
 
                 //Utilities.Log(failHashrate + " - " + failUptime);
-
             } catch (Exception ex)
             {
                 Utilities.Log("api: " + ex.Message);
             }
         }
         */
-#endregion
+
+        #endregion Old API Json reading section (not used)
 
         #region Timers/Events
+
         private void OnSessionTimer(object sender, ElapsedEventArgs e)
         {
             CheckSession();
@@ -527,7 +526,6 @@ namespace IdleService
 
         private void CheckSession()
         {
-
             if (!Utilities.IsSystem())
             {
                 if (!Config.isPipeConnected)
@@ -537,7 +535,6 @@ namespace IdleService
                 }
                 return;
             }
-                
 
             Config.currentSessionId = ProcessExtensions.GetSession();
 
@@ -622,7 +619,7 @@ namespace IdleService
 
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))
-                {   
+                {
                     //If our CPU threshold is over 0, and CPU usage is over that, then stop mining and skip the next 6 timer cycles
                     if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Config.CpuUsageAverage() > Config.settings.cpuUsageThresholdWhileNotIdle))
                     {
@@ -676,7 +673,7 @@ namespace IdleService
                     }
                 }
 
-                if  (Config.settings.mineWithGpu)
+                if (Config.settings.mineWithGpu)
                 {
                     if (!Utilities.AreMinersRunning(Config.settings.gpuMiners, Config.isUserIdle))
                     {
@@ -685,8 +682,8 @@ namespace IdleService
                         Utilities.MinersShouldBeRunning(Config.settings.gpuMiners);
                         Utilities.LaunchMiners(Config.settings.gpuMiners);
                     }
-                }                
-                
+                }
+
                 if (didStartMiners)
                 {
                     client.PushMessage(new IdleMessage
@@ -703,11 +700,10 @@ namespace IdleService
                 //Prevent sleep
 
                 //check cpu/gpu temps
-
             }
             //Utilities.Debug("OnMinerTimerEvent exited");
         }
-#endregion
-                   
+
+        #endregion Timers/Events
     }
 }

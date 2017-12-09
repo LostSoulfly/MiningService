@@ -1,16 +1,15 @@
-﻿using System;
+﻿using idleMon;
+using Message;
+using NamedPipeWrapper;
+using System;
+using System.Drawing;
 using System.Timers;
 using System.Windows.Forms;
-using NamedPipeWrapper;
-using Message;
-using System.Drawing;
-using idleMon;
 
 namespace IdleMon
 {
-    class IdleMonContext : ApplicationContext
+    internal class IdleMonContext : ApplicationContext
     {
-
         public enum PacketID
         {
             None,
@@ -33,6 +32,7 @@ namespace IdleMon
 
         //Where the actual program starts
         private NotifyIcon TrayIcon;
+
         private ContextMenuStrip TrayIconContextMenu;
         private ToolStripMenuItem CloseMenuItem;
         private ToolStripMenuItem PauseMenuItem;
@@ -40,6 +40,7 @@ namespace IdleMon
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
+
         private System.Timers.Timer timer = new System.Timers.Timer(3000);
         private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(5000);
 
@@ -49,7 +50,7 @@ namespace IdleMon
         private bool monitorFullscreen;
         private bool fullscreenDetected;
         private bool connectedToService;
-        private int  fullscreenDelay;
+        private int fullscreenDelay;
 
         public IdleMonContext()
         {
@@ -69,23 +70,23 @@ namespace IdleMon
                 server.Start();
 
                 System.Timers.Timer myTimer = new System.Timers.Timer(5000);
-                myTimer.Elapsed += delegate {
-                    if (!connectedToService && !stealthMode) {
+                myTimer.Elapsed += delegate
+                {
+                    if (!connectedToService && !stealthMode)
+                    {
                         TrayIcon.BalloonTipText = "Unable to connect to IdleService. Please make sure it is running!";
                         TrayIcon.BalloonTipIcon = ToolTipIcon.Error;
                         TrayIcon.ShowBalloonTip(3000);
-                        }
+                    }
                 };
                 myTimer.AutoReset = false;
                 myTimer.Start();
-
             }
             catch
             {
                 Utilities.Log("Unable to start named pipe server!");
             }
             Utilities.Log("Named pipe server started.");
-
         }
 
         private void OnFullscreenTimer(object sender, ElapsedEventArgs e)
@@ -101,7 +102,8 @@ namespace IdleMon
                     fullscreenDetected = false;
                     return;
                 }
-            } else
+            }
+            else
             {
                 fullscreenDetected = true;
                 Utilities.fullscreenAppName = fullscreenApp;
@@ -115,7 +117,8 @@ namespace IdleMon
             if (fullscreenDelay <= 0)
             {
                 SendPipeMessage(PacketID.Fullscreen, fullscreenDetected, fullscreenApp);
-            } else
+            }
+            else
             {
                 fullscreenDelay--; //subtract 1 from the current delay before updating the service of fullscreen status
             }
@@ -123,14 +126,13 @@ namespace IdleMon
 
         private void InitializeComponent()
         {
-            
             TrayIcon = new NotifyIcon();
             Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
-           
+
             TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
             TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             TrayIcon.Text = "IdleMon";
-            
+
             TrayIcon.Icon = IdleService.Properties.Resources.TrayIcon;
 
             //Optional - handle doubleclicks on the icon:
@@ -170,13 +172,12 @@ namespace IdleMon
 
             TrayIconContextMenu.ResumeLayout(false);
             TrayIcon.ContextMenuStrip = TrayIconContextMenu;
-            
+
             TrayIcon.Visible = true;
         }
 
         private void IgnoreFullscreenMenuItem_Click(object sender, EventArgs e)
         {
-
             SendPipeMessage(PacketID.IgnoreFullscreenApp, true, Utilities.fullscreenAppName);
 
             Utilities.ignoredFullscreenApps.Add(Utilities.fullscreenAppName);
@@ -217,26 +218,25 @@ namespace IdleMon
                 SendPipeMessage(PacketID.Stop, false);
 
                 System.Timers.Timer myTimer = new System.Timers.Timer(3000);
-                myTimer.Elapsed += delegate {
+                myTimer.Elapsed += delegate
+                {
                     StopIdleMon();
                 };
                 myTimer.AutoReset = false;
                 myTimer.Start();
-
             }
         }
 
         private void PauseMenuItem_Click(object sender, EventArgs e)
         {
-
             if (this.miningPaused)
             {
                 SendPipeMessage(PacketID.Resume, false, Environment.UserName, PacketID.Pause);
-            } else
+            }
+            else
             {
                 SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
             }
-
         }
 
         private void PauseMining(bool stateToSet, bool showTrayNotification = true)
@@ -274,7 +274,6 @@ namespace IdleMon
 
                     if (_isIdle == Utilities.lastState)
                         return;
-
                 }
                 catch (Exception ex)
                 {
@@ -287,7 +286,6 @@ namespace IdleMon
             /*
             if (!miningPaused && fullscreenDetected)
             {
-                
                 SendPipeMessage(PacketID.Fullscreen, true, Environment.UserName);
                 sentFirstTime = false;
             }
@@ -302,7 +300,6 @@ namespace IdleMon
 
             sentFirstTime = true;
             Utilities.lastState = _isIdle;
-
         }
 
         private void OnError(Exception exception)
@@ -328,13 +325,14 @@ namespace IdleMon
                     break;
 
                 case ((int)PacketID.IdleTime):
-                    
+
                     int minutes = Int32.Parse(message.data);
 
                     if (minutes < 0 || minutes > 3600)
                     {
                         Utilities.minutesIdle = 10;
-                    } else
+                    }
+                    else
                     {
                         Utilities.minutesIdle = minutes;
                     }
@@ -349,10 +347,9 @@ namespace IdleMon
                     //stealthMode = message.isIdle;
                     //if (stealthMode)
 
-                        //InitializeComponent();
+                    //InitializeComponent();
                     /*
                     if (Program.stealthMode) {
-                        
                         Utilities.Log("Stealth initialized.");
                     } else
                     {
@@ -370,16 +367,16 @@ namespace IdleMon
                     break;
 
                 case ((int)PacketID.Message):
-                        if (TrayIcon != null)
-                        {
-                            TrayIcon.BalloonTipText = message.data;
-                            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-                            TrayIcon.ShowBalloonTip(1000);
-                        }
+                    if (TrayIcon != null)
+                    {
+                        TrayIcon.BalloonTipText = message.data;
+                        TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                        TrayIcon.ShowBalloonTip(1000);
+                    }
                     break;
 
                 case ((int)PacketID.Stop):
-                    
+
                     StopIdleMon();
                     break;
 
@@ -422,7 +419,6 @@ namespace IdleMon
                         }
                     }
                     break;
-
             }
         }
 
@@ -445,7 +441,6 @@ namespace IdleMon
             if (monitorFullscreen) fullscreenTimer.Start();
             connectedToService = true;
 
-
             SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
         }
 
@@ -466,6 +461,5 @@ namespace IdleMon
                 Utilities.Log("SendPipeMessage: " + ex.Message);
             }
         }
-
     }
 }

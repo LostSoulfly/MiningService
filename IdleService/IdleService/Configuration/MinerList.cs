@@ -1,9 +1,7 @@
-﻿
-namespace IdleService
+﻿namespace IdleService
 {
     public class MinerList
     {
-
         public MinerList(string executable, string idleArguments, string activeArguments, bool mineWhileNotIdle)
         {
             this.executable = executable;

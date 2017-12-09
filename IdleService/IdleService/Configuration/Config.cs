@@ -1,19 +1,21 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using Newtonsoft.Json;
 using System.IO;
+using System.Linq;
 
 namespace IdleService
 {
-    static class Config
+    internal static class Config
     {
         //Settings class instance for de/serialization
         public static Settings settings;
+
         public static string idleMonExecutable = "IdleMon.exe";
 
         //Global variables used in different classes
         internal static bool isUserIdle { get; set; }
+
         internal static bool isUserLoggedIn { get; set; }
         internal static bool isPipeConnected { get; set; }
         internal static bool isCurrentlyMining { get; set; }
@@ -23,11 +25,11 @@ namespace IdleService
         internal static bool doesBatteryExist { get; set; }
         internal static bool fullscreenDetected { get; set; }
         internal static bool computerIsLocked { get; set; }
-        internal static int  currentSessionId { get; set; }
-        internal static int  skipTimerCycles { get; set; }
-        internal static int  sessionLaunchAttempts { get; set; }
+        internal static int currentSessionId { get; set; }
+        internal static int skipTimerCycles { get; set; }
+        internal static int sessionLaunchAttempts { get; set; }
 
-        private static int   cpuQueueLimit = 10;
+        private static int cpuQueueLimit = 10;
         internal static Queue<int> cpuUsageQueue = new Queue<int>();
 
         //Hashrate monitoring
@@ -39,9 +41,10 @@ namespace IdleService
 
         //global sync objects for locking
         internal static readonly object startLock = new object();
+
         internal static readonly object timeLock = new object();
-        
-        public static void LoadConfigFromFile (string jsonFilePath = "")
+
+        public static void LoadConfigFromFile(string jsonFilePath = "")
         {
             //Create a temporary Settings object
             Settings settingsJson = new Settings();
@@ -62,13 +65,13 @@ namespace IdleService
             {
                 //Try to read and deserialize the passed file path into the temporary Settings object
                 settingsJson = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(jsonFilePath));
-                
+
                 //Pass our new settings to VerifySettings, check it for safe numbers etc
                 VerifySettings(ref settingsJson);
-                
-                settings = settingsJson;
 
-            } catch (Exception ex)
+                settings = settingsJson;
+            }
+            catch (Exception ex)
             {
                 Utilities.Log("LoadConfigFromFile: " + ex.Message, force: true);
             }
@@ -79,7 +82,6 @@ namespace IdleService
 
         public static void WriteConfigToFile(string jsonFilePath = "")
         {
-
             if (jsonFilePath.Length == 0)
                 jsonFilePath = Utilities.ApplicationPath() + "MinerService.json";
 
@@ -107,7 +109,6 @@ namespace IdleService
 
             //Write the defaults to file
             WriteConfigToFile();
-
         }
 
         private static void VerifySettings(ref Settings tempSettings)
@@ -133,14 +134,15 @@ namespace IdleService
 
             VerifyMiners(tempSettings.cpuMiners);
             VerifyMiners(tempSettings.gpuMiners);
-            
+
             if (!File.Exists(idleMonExecutable))
             {
                 if (File.Exists(Utilities.ApplicationPath() + idleMonExecutable))
                 {
                     idleMonExecutable = Utilities.ApplicationPath() + idleMonExecutable;
-                } else
-                { 
+                }
+                else
+                {
                     Utilities.Log("Unable to locate " + idleMonExecutable + ". Stopping IdleService.", force: true);
                     System.Environment.Exit(200);
                 }
@@ -156,7 +158,6 @@ namespace IdleService
             {
                 if (miner.executable.Length == 0)
                 {
-
                     Utilities.Log("You have an empty Miner, this is not allowed.", force: true);
                     System.Environment.Exit(100);
                     return false;
@@ -167,8 +168,9 @@ namespace IdleService
                     if (File.Exists(Utilities.ApplicationPath() + miner.executable))
                     {
                         miner.executable = Utilities.ApplicationPath() + miner.executable;
-                    } else
-                    { 
+                    }
+                    else
+                    {
                         Utilities.Log("Unable to locate miner Exe: " + miner.executable, force: true);
                         System.Environment.Exit(100);
                         return false;

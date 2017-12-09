@@ -9,13 +9,13 @@ namespace IdleService
         {
             //Catch all uncaught erros and log them
             AppDomain.CurrentDomain.UnhandledException += (s, e) => Utilities.Log(e.ExceptionObject.ToString());
-            
+
             //Only run if OS is 64bit
             if (!Utilities.Is64BitOS()) { Utilities.Log("Not 64bit"); return; }
-            
+
             //Only run if OS is Vista or higher
             if (!Utilities.IsWinVistaOrHigher()) { Utilities.Log("Not Vista+"); return; }
-            
+
             //Configure the TopShelf service library to start the service
             try
             {
@@ -30,7 +30,7 @@ namespace IdleService
                         service.WhenStopped(s => s.Stop());
                         service.WhenSessionChanged((s, hc, args) => s.SessionChanged(args));
                     });
-                    
+
                     //set some information for TopShelf service registration
                     configure.EnableSessionChanged();
                     configure.ApplyCommandLine();
@@ -39,8 +39,8 @@ namespace IdleService
                     configure.SetDisplayName("IdleService");
                     configure.SetDescription("");
                 });
-
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 Utilities.Log("TopShelf: " + ex.Message + Environment.NewLine + ex.StackTrace);
             }
