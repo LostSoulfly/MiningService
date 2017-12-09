@@ -1,19 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using Microsoft.Win32;
 using Topshelf;
 using System.Timers;
 using NamedPipeWrapper;
 using Message;
-using System.IO.Pipes;
-using System.Security.Principal;
-using System.Security.AccessControl;
-using System.Threading.Tasks;
-using System.Net.Http;
-using Newtonsoft.Json;
 
 namespace IdleService
 {
