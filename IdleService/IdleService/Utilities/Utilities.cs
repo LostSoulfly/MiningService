@@ -235,7 +235,7 @@ namespace IdleService
 
                 if ((miner.shouldMinerBeRunning && !miner.minerDisabled) && 
                     (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) && 
-                    miner.launchAttempts <= 4)
+                    miner.launchAttempts <= 4 && !Config.isMiningPaused)
                 {
                     if (LaunchProcess(miner) <= 0)  //returns PID
                     {
@@ -265,7 +265,7 @@ namespace IdleService
         {
             foreach (var miner in minerList)
             {
-                if ((!miner.minerDisabled && miner.launchAttempts < 4) && (miner.mineWhileNotIdle || Config.isUserIdle))
+                if ((!miner.minerDisabled && miner.launchAttempts < 4) && (miner.mineWhileNotIdle || Config.isUserIdle) && !Config.isMiningPaused)
                 {
                     miner.shouldMinerBeRunning = true;
                 } else
@@ -297,7 +297,7 @@ namespace IdleService
             {
                 foreach (var miner in Config.settings.gpuMiners)
                 {
-                    if (miner.shouldMinerBeRunning)
+                    if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
                     {
                         Debug("Killing miner " + miner.executable);
                         KillProcess(Path.GetFileNameWithoutExtension(miner.executable));

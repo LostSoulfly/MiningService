@@ -9,11 +9,12 @@ namespace IdleService
     public class MinerList
     {
 
-        public MinerList(string executable, string idleArguments, string activeArguments)
+        public MinerList(string executable, string idleArguments, string activeArguments, bool mineWhileNotIdle)
         {
             this.executable = executable;
             this.idleArguments = idleArguments;
             this.activeArguments = activeArguments;
+            this.mineWhileNotIdle = mineWhileNotIdle;
             shouldMinerBeRunning = false;
             isMiningIdleSpeed = false;
             minerDisabled = false;

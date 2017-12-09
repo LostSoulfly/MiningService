@@ -73,8 +73,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>mkdir ..\..\..\..\Build\
-copy $(TargetPath) ..\..\..\..\Build\
+    <PostBuildEvent>copy $(TargetPath) ..\..\..\..\Build\
 copy TopShelf.dll ..\..\..\..\Build\
 copy Newtonsoft.Json.dll ..\..\..\..\Build\
 copy NamedPipeWrapper.dll ..\..\..\..\Build\

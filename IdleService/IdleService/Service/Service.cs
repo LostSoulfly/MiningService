@@ -246,6 +246,22 @@ namespace IdleService
 
                     break;
 
+                case ((int)PacketID.Fullscreen):
+                    Config.isUserIdle = false;
+
+                    lock (Config.timeLock)
+                    {
+                        if (message.isIdle && Config.fullscreenDetected != true)
+                        {
+                            Utilities.Debug("idleMon detected Fullscreen program: " + message.data);
+                            Utilities.KillMiners();
+                        }
+
+                        Config.fullscreenDetected = message.isIdle;
+                    }
+
+                    break;
+
                 case ((int)PacketID.Hello):
                     Utilities.Log("idleMon user " + message.data + " connected.");
                     Config.isUserIdle = message.isIdle;
@@ -257,7 +273,7 @@ namespace IdleService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
-
+                    
                     /*
                     connection.PushMessage(new IdleMessage
                     {
@@ -538,7 +554,13 @@ namespace IdleService
                     Utilities.Debug("Mining is paused");
                     return;
                 }
-                
+
+                if (Config.fullscreenDetected)
+                {
+                    Utilities.Debug("Mining is paused by fullscreen program.");
+                    return;
+                }
+
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))
                 {   
