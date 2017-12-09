@@ -16,7 +16,7 @@ namespace IdleService
         #region Public variables
         
         //This version string is actually quite useless. I just use it to verify the running version in log files.
-        public static string version = "0.0.8";
+        public static string version = "0.1.0a";
         
 #endregion
 
@@ -151,7 +151,7 @@ namespace IdleService
         {
             bool areMinersRunning = true;
 
-            Debug("AreMinersRunning entered");
+            //Debug("AreMinersRunning entered");
 
             foreach (var miner in miners)
             {
@@ -159,7 +159,7 @@ namespace IdleService
                 
                 if (miner.isMiningIdleSpeed != isUserIdle && miner.shouldMinerBeRunning)
                 {
-                    Utilities.Debug("Miner " + miner.executable + " is not running in IDLE mode.");
+                    Utilities.Debug("Miner " + miner.executable + " is not running in correct mode!");
                     KillProcess(miner.executable);
                     areMinersRunning = false;
                 }
@@ -199,6 +199,7 @@ namespace IdleService
                 return 0;
 
             string arguments = Config.isUserIdle ? miner.idleArguments : miner.activeArguments;
+            miner.isMiningIdleSpeed = Config.isUserIdle;
 
             if (arguments.Length == 0)
                 return 0;
@@ -226,12 +227,12 @@ namespace IdleService
             bool launchIssues = false;
             bool isRunning = false;
 
-            Debug("LaunchMiners entered");
+            //Debug("LaunchMiners entered");
 
             foreach (var miner in minerList)
             {
                 isRunning = IsProcessRunning(miner);
-                Debug("shouldMinerBeRunning: " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts" + miner.launchAttempts);
+                Debug("shouldMinerBeRunning: " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts: " + miner.launchAttempts);
 
                 if ((miner.shouldMinerBeRunning && !miner.minerDisabled) && 
                     (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) && 
@@ -243,6 +244,7 @@ namespace IdleService
                         launchIssues = true;
                     }
                     miner.shouldMinerBeRunning = true;
+                    miner.isMiningIdleSpeed = Config.isUserIdle;
 
                 } else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
                 {
@@ -278,7 +280,7 @@ namespace IdleService
 
         public static void KillMiners()
         {
-            Debug("KillMiners entered");
+            //Debug("KillMiners entered");
             //loop through the CPU miner list and kill all miners
             if (Config.settings.mineWithCpu)
             {
@@ -316,7 +318,7 @@ namespace IdleService
         {
             bool cantKillProcess = false;
 
-            Debug("KillProcess entered: " + proc);
+            //Debug("KillProcess entered: " + proc);
 
             try
             {

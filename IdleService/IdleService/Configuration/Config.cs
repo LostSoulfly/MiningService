@@ -24,6 +24,7 @@ namespace IdleService
         internal static bool isMiningPaused { get; set; }
         internal static bool doesBatteryExist { get; set; }
         internal static bool fullscreenDetected { get; set; }
+        internal static bool computerIsLocked { get; set; }
         internal static int  currentSessionId { get; set; }
         internal static int  skipTimerCycles { get; set; }
 
@@ -110,7 +111,7 @@ namespace IdleService
             if (tempSettings.maxGpuTemp > 100 || tempSettings.maxGpuTemp < 0)
                 tempSettings.maxGpuTemp = 70;
 
-            if (tempSettings.minutesUntilIdle > 3600 || tempSettings.minutesUntilIdle < 3)
+            if (tempSettings.minutesUntilIdle > 3600 || tempSettings.minutesUntilIdle < 1)
                 tempSettings.minutesUntilIdle = 10;
 
             if (tempSettings.cpuUsageThresholdWhileNotIdle > 100 || tempSettings.cpuUsageThresholdWhileNotIdle < 0)

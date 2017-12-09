@@ -9,7 +9,6 @@ namespace IdleService
         {
             //Catch all uncaught erros and log them
             AppDomain.CurrentDomain.UnhandledException += (s, e) => Utilities.Log(e.ExceptionObject.ToString());
-            Utilities.Log("Configure: v" + Utilities.version);
             
             //Only run if OS is 64bit
             if (!Utilities.Is64BitOS()) { Utilities.Log("Not 64bit"); return; }

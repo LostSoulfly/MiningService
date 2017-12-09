@@ -69,6 +69,9 @@ namespace idleMon
                 if (proc.ProcessName == "explorer")
                     return string.Empty;
 
+                if (proc.ProcessName == "LockApp")
+                    return string.Empty;
+
                 fullscreenApp = proc.ProcessName;
 
                 Utilities.Log("Screen " + screen.DeviceName + " is currently fullscreen: " + proc.ProcessName);

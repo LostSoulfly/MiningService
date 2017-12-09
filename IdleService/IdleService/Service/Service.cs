@@ -32,7 +32,8 @@ namespace IdleService
             Stealth,
             Log,
             Fullscreen,
-            IdleTime
+            IdleTime,
+            Message
         }
 
         #region Json API for XMR-STAK-CPU only
@@ -75,14 +76,14 @@ namespace IdleService
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
         internal NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-        private Timer minerTimer = new Timer(7000);
-        private Timer sessionTimer = new Timer(30000);
+        private Timer minerTimer = new Timer(5000);
+        private Timer sessionTimer = new Timer(10000);
         //private Timer apiCheckTimer = new Timer(10000);
         
         #region TopShelf Start/Stop/Abort
         public bool Start(HostControl hc)
         {
-            Utilities.Log("Starting IdleService");
+            Utilities.Log("Starting IdleService: " + Utilities.version);
             host = hc;
 
             if (!Config.configInitialized)
@@ -202,6 +203,14 @@ namespace IdleService
 
                     if (Config.isUserLoggedIn)
                     {
+                        client.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Message,
+                            isIdle = false,
+                            requestId = (int)PacketID.None,
+                            data = "You have been detected as " + (message.isIdle ? "idle." : "active.")
+                        });
+
                         Config.isUserIdle = message.isIdle;
                         OnMinerTimerEvent(minerTimer, null);    //call the minerTime event immediately to process the change.
                     }
@@ -247,13 +256,21 @@ namespace IdleService
                     break;
 
                 case ((int)PacketID.Fullscreen):
-                    Config.isUserIdle = false;
 
                     lock (Config.timeLock)
                     {
                         if (message.isIdle && Config.fullscreenDetected != true)
                         {
                             Utilities.Debug("idleMon detected Fullscreen program: " + message.data);
+
+                            client.PushMessage(new IdleMessage
+                            {
+                                packetId = (int)PacketID.Message,
+                                isIdle = false,
+                                requestId = (int)PacketID.None,
+                                data = "Mining has been stopped because " + message.data + " was detected fullscreen."
+                            });
+
                             Utilities.KillMiners();
                         }
 
@@ -332,58 +349,68 @@ namespace IdleService
         
         public void SessionChanged(SessionChangedArguments args)
         {
-            //todo Put this somewhere better
-            Utilities.KillMiners();
-
-            switch (args.ReasonCode)
+            lock (Config.timeLock)
             {
-                case Topshelf.SessionChangeReasonCode.SessionLock:
-                    Utilities.Debug(string.Format("Session: {0} - Reason: {1} - Lock", args.SessionId, args.ReasonCode));
-                    Config.isUserLoggedIn = false;
-                    Config.currentSessionId = args.SessionId;
-                    Config.isUserIdle = true;
-                    break;
+                switch (args.ReasonCode)
+                {
+                    case Topshelf.SessionChangeReasonCode.SessionLock:
+                        Utilities.Log(string.Format("Session: {0} - Reason: {1} - Lock", args.SessionId, args.ReasonCode));
+                        Config.isUserLoggedIn = false;
+                        Config.computerIsLocked = true;
+                        Config.currentSessionId = args.SessionId;
+                        Config.isUserIdle = true;
+                        break;
 
-                case Topshelf.SessionChangeReasonCode.SessionLogoff:
-                    Config.isUserLoggedIn = false;
-                    Utilities.Debug(string.Format("Session: {0} - Reason: {1} - Logoff", args.SessionId, args.ReasonCode));
-                    Config.currentSessionId = 0;
-                    Config.isUserIdle = true;
-                    break;
+                    case Topshelf.SessionChangeReasonCode.SessionLogoff:
+                        Config.isUserLoggedIn = false;
+                        Utilities.Log(string.Format("Session: {0} - Reason: {1} - Logoff", args.SessionId, args.ReasonCode));
+                        Config.currentSessionId = 0;
+                        Config.isUserIdle = true;
+                        break;
 
-                case Topshelf.SessionChangeReasonCode.SessionUnlock:
-                    Config.isUserLoggedIn = true;
-                    Utilities.Debug(string.Format("Session: {0} - Reason: {1} - Unlock", args.SessionId, args.ReasonCode));
-                    Config.currentSessionId = args.SessionId;
-                    Config.isUserIdle = false;
-                    break;
-
-                case Topshelf.SessionChangeReasonCode.SessionLogon:
-                    Config.isUserLoggedIn = true;
-                    Utilities.Debug(string.Format("Session: {0} - Reason: {1} - Login", args.SessionId, args.ReasonCode));
-                    Config.currentSessionId = args.SessionId;
-                    Config.isUserIdle = false;
-                    break;
-
-                case Topshelf.SessionChangeReasonCode.RemoteDisconnect:
-                    Config.isUserLoggedIn = false;
-                    Utilities.Debug(string.Format("Session: {0} - Reason: {1} - RemoteDisconnect", args.SessionId, args.ReasonCode));
-                    Config.currentSessionId = ProcessExtensions.GetSession();
-                    if (Config.currentSessionId > 0)
+                    case Topshelf.SessionChangeReasonCode.SessionUnlock:
                         Config.isUserLoggedIn = true;
-                    Config.isUserIdle = true;
-                    break;
+                        Config.computerIsLocked = false;
+                        Utilities.Log(string.Format("Session: {0} - Reason: {1} - Unlock", args.SessionId, args.ReasonCode));
+                        Config.currentSessionId = args.SessionId;
+                        Config.isUserIdle = false;
+                        break;
 
-                case Topshelf.SessionChangeReasonCode.RemoteConnect:
-                    Config.isUserLoggedIn = true;
-                    Utilities.Debug(string.Format("Session: {0} - Reason: {1} - RemoteConnect", args.SessionId, args.ReasonCode));
-                    Config.currentSessionId = ProcessExtensions.GetSession();
-                    Config.isUserIdle = false;
-                    break;
+                    case Topshelf.SessionChangeReasonCode.SessionLogon:
+                        Config.isUserLoggedIn = true;
+                        Config.computerIsLocked = false;
+                        Utilities.Log(string.Format("Session: {0} - Reason: {1} - Login", args.SessionId, args.ReasonCode));
+                        Config.currentSessionId = args.SessionId;
+                        Config.isUserIdle = false;
+                        break;
 
-                default:
-                    Utilities.Debug(string.Format("Session: {0} - Other - Reason: {1}", args.SessionId, args.ReasonCode));
-                    break;
+                    case Topshelf.SessionChangeReasonCode.RemoteDisconnect:
+                        Config.isUserLoggedIn = false;
+                        Config.computerIsLocked = true;
+                        Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteDisconnect", args.SessionId, args.ReasonCode));
+                        Config.currentSessionId = ProcessExtensions.GetSession();
+                        if (Config.currentSessionId > 0)
+                            Config.isUserLoggedIn = true;
+                        Config.isUserIdle = true;
+                        break;
+
+                    case Topshelf.SessionChangeReasonCode.RemoteConnect:
+                        Config.isUserLoggedIn = true;
+                        Config.computerIsLocked = false;
+                        Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteConnect", args.SessionId, args.ReasonCode));
+                        Config.currentSessionId = ProcessExtensions.GetSession();
+                        Config.isUserIdle = false;
+                        break;
+
+                    default:
+                        Utilities.Debug(string.Format("Session: {0} - Other - Reason: {1}", args.SessionId, args.ReasonCode));
+                        break;
+                }
+
+                Config.fullscreenDetected = false;
+                Utilities.KillMiners();
+                Utilities.KillProcess(Config.idleMonExecutable);
+
             }
 
         }
@@ -510,6 +537,17 @@ namespace IdleService
                 return;
             }
 
+            if (Config.isUserLoggedIn && Config.computerIsLocked)
+            {
+                if (Config.isPipeConnected)
+                {
+                    Utilities.KillProcess(Config.idleMonExecutable);
+                    Config.sessionLaunchAttempts = 0;
+                    Config.isUserIdle = true;
+                }
+                return;
+            }
+
             if (Config.isUserLoggedIn && !Config.isPipeConnected)
             {
                 Config.sessionLaunchAttempts++;
@@ -539,7 +577,7 @@ namespace IdleService
 
         private void OnMinerTimerEvent(object sender, ElapsedEventArgs e)
         {
-            Utilities.Debug("OnMinerTimerEvent entered");
+            //Utilities.Debug("OnMinerTimerEvent entered");
             lock (Config.timeLock)
             {
                 if (Config.skipTimerCycles > 0)
@@ -561,6 +599,8 @@ namespace IdleService
                     return;
                 }
 
+                Utilities.Debug("isUserIdle: " + Config.isUserIdle);
+
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))
                 {   
@@ -569,6 +609,15 @@ namespace IdleService
                     {
                         Utilities.KillMiners();
                         Config.skipTimerCycles = 6;
+
+                        client.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Message,
+                            isIdle = false,
+                            requestId = (int)PacketID.None,
+                            data = "CPU Threshold exceeded; stopped mining for 1 minute."
+                        });
+
                         return;
                     }
                 }
@@ -578,6 +627,15 @@ namespace IdleService
                     if (Config.isCurrentlyMining)
                     {
                         Utilities.Debug("Battery level is not full; stop mining..");
+
+                        client.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)PacketID.Message,
+                            isIdle = false,
+                            requestId = (int)PacketID.None,
+                            data = "Battery level is not full; stopping mining."
+                        });
+
                         Utilities.KillMiners();
                     }
                     // regardless if we're mining, we can exit this method as we don't want to start mining now
@@ -586,11 +644,14 @@ namespace IdleService
 
                 //check if resumePausedMiningAfterMinutes has passed, eventually..
 
+                bool didStartMiners = false;
+
                 if (Config.settings.mineWithCpu)
                 {
                     if (!Utilities.AreMinersRunning(Config.settings.cpuMiners, Config.isUserIdle))
                     {
-                        //Utilities.KillMiners();
+                        didStartMiners = true;
+                        Utilities.Log("CPU Miners are being started in " + (Config.isUserIdle ? "idle" : "active") + " mode.");
                         Utilities.MinersShouldBeRunning(Config.settings.cpuMiners);
                         Utilities.LaunchMiners(Config.settings.cpuMiners);
                     }
@@ -600,12 +661,24 @@ namespace IdleService
                 {
                     if (!Utilities.AreMinersRunning(Config.settings.gpuMiners, Config.isUserIdle))
                     {
-                        //Utilities.KillMiners();
+                        didStartMiners = true;
+                        Utilities.Log("GPU Miners are being started in " + (Config.isUserIdle ? "idle" : "active") + " mode.");
                         Utilities.MinersShouldBeRunning(Config.settings.gpuMiners);
                         Utilities.LaunchMiners(Config.settings.gpuMiners);
                     }
                 }                
                 
+                if (didStartMiners)
+                {
+                    client.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)PacketID.Message,
+                        isIdle = false,
+                        requestId = (int)PacketID.None,
+                        data = "Mining has been started in " + (Config.isUserIdle ? "idle" : "active") + " mode."
+                    });
+                }
+
                 //Check cpu/gpu miners running, if not all running, start the ones that aren't running
 
                 //Prevent sleep
@@ -613,7 +686,7 @@ namespace IdleService
                 //check cpu/gpu temps
 
             }
-            Utilities.Debug("OnMinerTimerEvent exited");
+            //Utilities.Debug("OnMinerTimerEvent exited");
         }
 #endregion
                    

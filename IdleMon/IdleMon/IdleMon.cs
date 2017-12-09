@@ -28,7 +28,8 @@ namespace IdleMon
             Stealth,
             Log,
             Fullscreen,
-            IdleTime
+            IdleTime,
+            Message
         }
 
         public static bool stealthMode = false;
@@ -42,8 +43,8 @@ namespace IdleMon
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
-        private System.Timers.Timer timer = new System.Timers.Timer(5000);
-        private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(10000);
+        private System.Timers.Timer timer = new System.Timers.Timer(3000);
+        private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(5000);
 
         private bool lowOnly;
         private bool sentFirstTime;
@@ -334,6 +335,15 @@ namespace IdleMon
                         enableLogging = message.isIdle;
                         Utilities.Log("Logging initialized.");
                     }
+                    break;
+
+                case ((int)PacketID.Message):
+                        if (TrayIcon != null)
+                        {
+                            TrayIcon.BalloonTipText = message.data;
+                            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                            TrayIcon.ShowBalloonTip(1000);
+                        }
                     break;
 
                 case ((int)PacketID.Fullscreen):
