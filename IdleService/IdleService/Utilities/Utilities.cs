@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using OpenHardwareMonitor;
+using OpenHardwareMonitor.Hardware;
 
 namespace IdleService
 {
@@ -14,6 +16,7 @@ namespace IdleService
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.1.0a";
+        public static Computer hwmComputer = new Computer() { CPUEnabled = true, GPUEnabled = true };
 
         #endregion Public variables
 
@@ -94,8 +97,7 @@ namespace IdleService
         #endregion Check for network connection/MinerProxy server status
 
         #region CPU utils
-
-        //todo: Get CPU temperature function
+        
         public static int GetCpuUsage()
         {
             // This returns, in a % of 100, the current CPU usage over a 1 second period.
@@ -118,6 +120,38 @@ namespace IdleService
             }
         }
 
+        public static int GetCpuTemperature()
+        {
+            foreach (var hardware in hwmComputer.Hardware)
+            {
+                Utilities.Log(hardware.Name);
+                hardware.Update();
+
+                if (hardware.SubHardware.Length > 0)
+                {
+                    foreach (IHardware subHardware in hardware.SubHardware)
+                    {
+                        subHardware.Update();
+
+                        foreach (var sensor in subHardware.Sensors)
+                        {
+                            if (sensor.SensorType == SensorType.Temperature)
+                                Log(String.Format("{0} {1} = {2}", sensor.Name, sensor.Hardware, sensor.Value.HasValue ? sensor.Value.Value.ToString() : "no value"));
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var sensor in hardware.Sensors)
+                    {
+                        if (sensor.SensorType == SensorType.Temperature)
+                            Log(String.Format("{0} {1} = {2}", sensor.Identifier, sensor.Hardware, sensor.Value.HasValue ? sensor.Value.Value.ToString() : "no value"));
+                    }
+                }
+                
+            }
+            return 0;
+        }
         #endregion CPU utils
 
         #region GPU utils
