@@ -116,6 +116,9 @@ namespace IdleService
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
 
+                Utilities.hwmComputer.Open();
+                Utilities.GetCpuTemperature();
+
                 Utilities.Log("IdleService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
             }
@@ -152,6 +155,8 @@ namespace IdleService
             sessionTimer.Stop();
             //apiCheckTimer.Stop();
             client.Stop();
+
+            Utilities.hwmComputer.Close();
 
             Config.isCurrentlyMining = false;
 
@@ -270,7 +275,7 @@ namespace IdleService
                     {
                         if (message.isIdle && Config.fullscreenDetected != true)
                         {
-                            Utilities.Debug("idleMon detected Fullscreen program: " + message.data);
+                            Utilities.Log("idleMon detected Fullscreen program: " + message.data);
 
                             client.PushMessage(new IdleMessage
                             {
@@ -624,7 +629,7 @@ namespace IdleService
                     if (Config.settings.cpuUsageThresholdWhileNotIdle > 0 && (Config.CpuUsageAverage() > Config.settings.cpuUsageThresholdWhileNotIdle))
                     {
                         Utilities.KillMiners();
-                        Config.skipTimerCycles = 12;
+                        Config.skipTimerCycles = (int)(60000 / minerTimer.Interval);
 
                         client.PushMessage(new IdleMessage
                         {

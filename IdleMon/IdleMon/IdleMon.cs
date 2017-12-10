@@ -411,12 +411,6 @@ namespace IdleMon
                     if (message.requestId == (int)PacketID.Resume)
                     {
                         PauseMining(stateToSet: false, showTrayNotification: false);
-                        if (TrayIcon != null)
-                        {
-                            TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
-                            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-                            TrayIcon.ShowBalloonTip(1000);
-                        }
                     }
                     break;
             }
