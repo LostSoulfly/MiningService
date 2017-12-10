@@ -115,10 +115,7 @@ namespace IdleService
                 client.ServerMessage += OnServerMessage;
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
-
-                Utilities.hwmComputer.Open();
-                Utilities.GetCpuTemperature();
-
+                
                 Utilities.Log("IdleService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
             }
@@ -155,9 +152,7 @@ namespace IdleService
             sessionTimer.Stop();
             //apiCheckTimer.Stop();
             client.Stop();
-
-            Utilities.hwmComputer.Close();
-
+            
             Config.isCurrentlyMining = false;
 
             if (Config.settings.preventSleep)
