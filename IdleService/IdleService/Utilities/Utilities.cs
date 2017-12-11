@@ -171,7 +171,7 @@ namespace IdleService
                     KillProcess(miner.executable);
                     areMinersRunning = false;
                 }
-                if (proc.Length == 0)
+                if (proc.Length == 0 && miner.shouldMinerBeRunning)
                 {
                     areMinersRunning = false;
                 }
@@ -180,7 +180,7 @@ namespace IdleService
                     miner.launchAttempts = 0;
                 }
             }
-            //Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
+            Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
             return areMinersRunning;
         }
 
