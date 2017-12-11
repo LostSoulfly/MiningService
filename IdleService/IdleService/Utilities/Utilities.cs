@@ -14,6 +14,7 @@ namespace IdleService
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.1.0a";
+        public static string version = "0.1.1a";
 
         #endregion Public variables
 
@@ -158,6 +159,7 @@ namespace IdleService
         public static bool AreMinersRunning(List<MinerList> miners, bool isUserIdle)
         {
             bool areMinersRunning = true;
+            int disabled = 0;
 
             //Debug("AreMinersRunning entered");
 
@@ -165,22 +167,30 @@ namespace IdleService
             {
                 Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
 
-                if (miner.isMiningIdleSpeed != isUserIdle && miner.shouldMinerBeRunning)
+                if (miner.minerDisabled || (!miner.mineWhileNotIdle && !Config.isUserIdle))
+                    disabled++;
+
+                if (miner.isMiningIdleSpeed != isUserIdle && !miner.minerDisabled)
                 {
                     Utilities.Debug("Miner " + miner.executable + " is not running in correct mode!");
                     KillProcess(miner.executable);
                     areMinersRunning = false;
                 }
-                if (proc.Length == 0 && miner.shouldMinerBeRunning)
+                else if (proc.Length == 0)
                 {
                     areMinersRunning = false;
                 }
-                else
+                else if (proc.Length > 0)
                 {
+                    areMinersRunning = true;
                     miner.launchAttempts = 0;
                 }
             }
-            Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning);
+
+            if (disabled == miners.Count)
+                areMinersRunning = true;
+
+            Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning + " " + disabled + " " + miners.Count);
             return areMinersRunning;
         }
 

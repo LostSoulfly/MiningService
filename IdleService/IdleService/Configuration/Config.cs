@@ -132,8 +132,8 @@ namespace IdleService
             if (tempSettings.urlToCheckForNetwork.Length <= 0 && tempSettings.verifyNetworkConnectivity)
                 tempSettings.urlToCheckForNetwork = "http://beta.speedtest.net/";
 
-            VerifyMiners(tempSettings.cpuMiners);
-            VerifyMiners(tempSettings.gpuMiners);
+            if (tempSettings.mineWithCpu) VerifyMiners(tempSettings.cpuMiners);
+            if (tempSettings.mineWithGpu) VerifyMiners(tempSettings.gpuMiners);
 
             if (!File.Exists(idleMonExecutable))
             {
@@ -156,14 +156,14 @@ namespace IdleService
         {
             foreach (var miner in minerList)
             {
-                if (miner.executable.Length == 0)
+                if (miner.executable.Length == 0 && !miner.minerDisabled)
                 {
                     Utilities.Log("You have an empty Miner, this is not allowed.", force: true);
                     System.Environment.Exit(100);
                     return false;
                 }
 
-                if (!File.Exists(miner.executable))
+                if (!File.Exists(miner.executable) && !miner.minerDisabled)
                 {
                     if (File.Exists(Utilities.ApplicationPath() + miner.executable))
                     {

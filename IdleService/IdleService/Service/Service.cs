@@ -147,19 +147,22 @@ namespace IdleService
 
         public void Stop()
         {
-            Utilities.Log("Stopping IdleService..");
-            minerTimer.Stop();
-            sessionTimer.Stop();
-            //apiCheckTimer.Stop();
-            client.Stop();
-            
-            Config.isCurrentlyMining = false;
+            lock (Config.timeLock)
+            {
+                Utilities.Log("Stopping IdleService..");
+                minerTimer.Stop();
+                sessionTimer.Stop();
+                //apiCheckTimer.Stop();
+                client.Stop();
 
-            if (Config.settings.preventSleep)
-                Utilities.AllowSleep();
+                Config.isCurrentlyMining = false;
 
-            Utilities.KillMiners();
-            Utilities.KillProcess(Config.idleMonExecutable);
+                if (Config.settings.preventSleep)
+                    Utilities.AllowSleep();
+
+                Utilities.KillMiners();
+                Utilities.KillProcess(Config.idleMonExecutable);
+            }
             Utilities.Log("Successfully stopped IdleService.");
         }
 
@@ -591,7 +594,7 @@ namespace IdleService
 
         private void OnMinerTimerEvent(object sender, ElapsedEventArgs e)
         {
-            //Utilities.Debug("OnMinerTimerEvent entered");
+            Utilities.Debug("OnMinerTimerEvent entered");
             lock (Config.timeLock)
             {
                 if (Config.skipTimerCycles > 0)
