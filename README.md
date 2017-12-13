@@ -5,6 +5,8 @@ Comprised of two separate programs.
 
 This is an idle miner software; it should detect whether your computer is idle or locked and mine accordingly based on your settings. Most features are implemented and (should be) working with the current release.
 
+![Screenshot](Screens/Service.PNG)
+
 ## How to use
 First, download the newest version from the Releases page, or compile it yourself. VS 2017 recommended.
 
