@@ -74,7 +74,7 @@ namespace IdleMon
                 {
                     if (!connectedToService && !stealthMode)
                     {
-                        TrayIcon.BalloonTipText = "Unable to connect to IdleService. Please make sure it is running!";
+                        TrayIcon.BalloonTipText = "Unable to connect to MiningService. Please make sure it is running!";
                         TrayIcon.BalloonTipIcon = ToolTipIcon.Error;
                         TrayIcon.ShowBalloonTip(3000);
                     }
@@ -133,7 +133,7 @@ namespace IdleMon
             TrayIcon.BalloonTipIcon = ToolTipIcon.None;
             TrayIcon.Text = "IdleMon";
 
-            TrayIcon.Icon = IdleService.Properties.Resources.TrayIcon;
+            TrayIcon.Icon = MiningService.Properties.Resources.TrayIcon;
 
             //Optional - handle doubleclicks on the icon:
             TrayIcon.DoubleClick += TrayIcon_DoubleClick;
@@ -210,11 +210,11 @@ namespace IdleMon
 
         private void CloseMenuItem_Click(object sender, EventArgs e)
         {
-            if (!connectedToService || MessageBox.Show("This will also stop the IdleService.\n\nAre you sure?",
+            if (!connectedToService || MessageBox.Show("This will also stop the MiningService.\n\nAre you sure?",
                     "Stop Mining?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation,
                     MessageBoxDefaultButton.Button2) == DialogResult.Yes)
             {
-                //Can make this more graceful, but IdleService will kill IdleMon if stopping is successful.
+                //Can make this more graceful, but MiningService will kill IdleMon if stopping is successful.
                 SendPipeMessage(PacketID.Stop, false);
 
                 System.Timers.Timer myTimer = new System.Timers.Timer(3000);
@@ -315,12 +315,12 @@ namespace IdleMon
             switch (message.packetId)
             {
                 case ((int)PacketID.Pause):
-                    Utilities.Log("Pause received from IdleService.");
+                    Utilities.Log("Pause received from MiningService.");
                     PauseMining(true);
                     break;
 
                 case ((int)PacketID.Resume):
-                    Utilities.Log("Resume received from IdleService.");
+                    Utilities.Log("Resume received from MiningService.");
                     PauseMining(false);
                     break;
 
@@ -337,12 +337,12 @@ namespace IdleMon
                         Utilities.minutesIdle = minutes;
                     }
 
-                    Utilities.Log("IdleTime received from IdleService: " + Utilities.minutesIdle);
+                    Utilities.Log("IdleTime received from MiningService: " + Utilities.minutesIdle);
 
                     break;
 
                 case ((int)PacketID.Stealth):
-                    Utilities.Log("Stealth received from IdleService: " + message.isIdle);
+                    Utilities.Log("Stealth received from MiningService: " + message.isIdle);
 
                     //stealthMode = message.isIdle;
                     //if (stealthMode)
@@ -402,7 +402,7 @@ namespace IdleMon
                         PauseMining(stateToSet: true, showTrayNotification: false);
                         if (TrayIcon != null)
                         {
-                            TrayIcon.BalloonTipText = "Connected to IdleService! Mining is currently Paused.";
+                            TrayIcon.BalloonTipText = "Connected to MiningService! Mining is currently Paused.";
                             TrayIcon.BalloonTipIcon = ToolTipIcon.None;
                             TrayIcon.ShowBalloonTip(1000);
                         }

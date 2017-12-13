@@ -6,7 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace IdleService
+namespace MiningService
 {
     internal static class Utilities
     {
@@ -443,7 +443,7 @@ namespace IdleService
         public static void PreventSleep()
         {
             //This sets the ThreadExecutionState to (attempt) to prevent the computer from sleeping
-            //todo: This may need to be implemented into IdleMon instead of IdleService. Needs testing.
+            //todo: This may need to be implemented into IdleMon instead of MiningService. Needs testing.
             SetThreadExecutionState(
               EXECUTION_STATE.ES_SYSTEM_REQUIRED |
               EXECUTION_STATE.ES_CONTINUOUS);

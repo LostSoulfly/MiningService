@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Timers;
 using Topshelf;
 
-namespace IdleService
+namespace MiningService
 {
     internal class MyService
     {
@@ -78,7 +78,7 @@ namespace IdleService
 
         public bool Start(HostControl hc)
         {
-            Utilities.Log("Starting IdleService: " + Utilities.version);
+            Utilities.Log("Starting MiningService: " + Utilities.version);
             host = hc;
 
             if (!Config.configInitialized)
@@ -92,7 +92,7 @@ namespace IdleService
             //wakes up from sleep, so we make sure it is only initialized once.
             if (!Config.serviceInitialized)
             {
-                Utilities.Log("Initializing IdleService.. CPU Cores: " + Environment.ProcessorCount);
+                Utilities.Log("Initializing MiningService.. CPU Cores: " + Environment.ProcessorCount);
 
                 if (Utilities.DoesBatteryExist())
                 {
@@ -116,7 +116,7 @@ namespace IdleService
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
                 
-                Utilities.Log("IdleService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
+                Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
             }
 
@@ -141,7 +141,7 @@ namespace IdleService
             Config.currentSessionId = ProcessExtensions.GetSession();
             Utilities.CheckForSystem(Config.currentSessionId);
 
-            Utilities.Log("IdleService is running");
+            Utilities.Log("MiningService is running");
             return true;
         }
 
@@ -149,7 +149,7 @@ namespace IdleService
         {
             lock (Config.timeLock)
             {
-                Utilities.Log("Stopping IdleService..");
+                Utilities.Log("Stopping MiningService..");
                 minerTimer.Stop();
                 sessionTimer.Stop();
                 //apiCheckTimer.Stop();
@@ -163,7 +163,7 @@ namespace IdleService
                 Utilities.KillMiners();
                 Utilities.KillProcess(Config.idleMonExecutable);
             }
-            Utilities.Log("Successfully stopped IdleService.");
+            Utilities.Log("Successfully stopped MiningService.");
         }
 
         public void Abort()
@@ -177,13 +177,13 @@ namespace IdleService
 
         private void OnServerDisconnect(NamedPipeConnection<IdleMessage, IdleMessage> connection)
         {
-            Utilities.Log("IdleService Pipe disconnected");
+            Utilities.Log("MiningService Pipe disconnected");
             Config.isPipeConnected = false;
         }
 
         private void OnError(Exception exception)
         {
-            Utilities.Debug("IdleService Pipe Err: " + exception.Message);
+            Utilities.Debug("MiningService Pipe Err: " + exception.Message);
             Config.isPipeConnected = false;
 
             client.Stop();
@@ -364,7 +364,7 @@ namespace IdleService
                     break;
 
                 default:
-                    Utilities.Debug("IdleService Idle default: " + message.packetId);
+                    Utilities.Debug("MiningService Idle default: " + message.packetId);
                     break;
             }
         }

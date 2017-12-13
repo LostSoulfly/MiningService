@@ -1,9 +1,9 @@
 ﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace IdleService
+namespace MiningService
 {
-    internal class Settings
+    public class Settings
     {
         //Settings loaded from config file
         [JsonProperty]

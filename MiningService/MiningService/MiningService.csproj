@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{6D795639-E2C2-45B4-8496-26DB31631412}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>IdleService</RootNamespace>
-    <AssemblyName>IdleService</AssemblyName>
+    <RootNamespace>MiningService</RootNamespace>
+    <AssemblyName>MiningService</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile>

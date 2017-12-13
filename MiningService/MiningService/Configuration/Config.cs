@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace IdleService
+namespace MiningService
 {
     internal static class Config
     {
@@ -143,7 +143,7 @@ namespace IdleService
                 }
                 else
                 {
-                    Utilities.Log("Unable to locate " + idleMonExecutable + ". Stopping IdleService.", force: true);
+                    Utilities.Log("Unable to locate " + idleMonExecutable + ". Stopping MiningService.", force: true);
                     System.Environment.Exit(200);
                 }
             }

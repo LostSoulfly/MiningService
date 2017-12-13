@@ -1,4 +1,4 @@
-﻿namespace IdleService
+﻿namespace MiningService
 {
     public class MinerList
     {

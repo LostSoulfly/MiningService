@@ -1,7 +1,7 @@
 ﻿using System;
 using Topshelf;
 
-namespace IdleService
+namespace MiningService
 {
     internal static class ConfigureService
     {
@@ -23,9 +23,9 @@ namespace IdleService
                 {
                     //set up some events for the TopShelf library, so we are notified of important events automatically
                     //Including starting/stopping the service as well as Windows Session changes.
-                    configure.Service<IdleService.MyService>(service =>
+                    configure.Service<MiningService.MyService>(service =>
                     {
-                        service.ConstructUsing(s => new IdleService.MyService());
+                        service.ConstructUsing(s => new MiningService.MyService());
                         service.WhenStarted((s, hc) => s.Start(hc));
                         service.WhenStopped(s => s.Stop());
                         service.WhenSessionChanged((s, hc, args) => s.SessionChanged(args));
@@ -35,8 +35,8 @@ namespace IdleService
                     configure.EnableSessionChanged();
                     configure.ApplyCommandLine();
                     configure.RunAsLocalSystem();
-                    configure.SetServiceName("IdleService");
-                    configure.SetDisplayName("IdleService");
+                    configure.SetServiceName("MiningService");
+                    configure.SetDisplayName("MiningService");
                     configure.SetDescription("");
                 });
             }

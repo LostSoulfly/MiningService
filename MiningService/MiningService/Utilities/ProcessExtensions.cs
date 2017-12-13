@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace IdleService
+namespace MiningService
 {
     public static class ProcessExtensions
     {
