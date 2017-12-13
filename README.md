@@ -17,16 +17,16 @@ This is an idle miner software; it should detect whether your computer is idle o
 ## How to use
 First, download the newest version from the Releases page, or compile it yourself. VS 2017 recommended.
 
-Run IdleService.exe once, so it can generate the default MinerService.json configuration file.
+Run MiningService.exe once, so it can generate the default MinerService.json configuration file.
 Open MinerService.json in a text editor (Notepad ++ recommended), and edit the settings to your liking.
 
-After modifying the settings, you can test them by running IdleService.exe. This will cause it to run as a Console window.
-After you are satisfied that your settings work, run `install.bat` to install IdleService as a Windows service, and then run `start.bat` to start the IdleService. If things went well, you should see a notifaction above your taskbar icons telling you that it is running.
+After modifying the settings, you can test them by running MiningService.exe. This will cause it to run as a Console window.
+After you are satisfied that your settings work, run `install.bat` to install MiningService as a Windows service, and then run `start.bat` to start the MiningService. If things went well, you should see a notifaction above your taskbar icons telling you that it is running.
 
 If you want to stop the service, run `stop.bat`. You can also use an elevated command prompt for all of these.
-`IdleService.exe start`
-`IdleService.exe stop`
-`IdleService.exe uninstall`. Or with the Service Control manager built into Windows: `sc start IdleService` `sc stop IdleService`.
+`MiningService.exe start`
+`MiningService.exe stop`
+`MiningService.exe uninstall`. Or with the Service Control manager built into Windows: `sc start MiningService` `sc stop MiningService`.
 
 #### MinerService.json
 Below CPU miner is XMRIG, and GPU miner is EWBF.
@@ -109,7 +109,7 @@ You can enter your own apps here, or right-click on the tray icon to ignore the 
 
 # How it works
 
-### IdleService
+### MiningService
 
 Runs as a Windows Service, and starts user-defined (crypto ideally, but anything, really) programs in the SYSTEM user's context.
 This allows us easy access to large pages (necessary for fast CPU mining with Monero), as well as easily hiding the mining software from display.
@@ -117,15 +117,15 @@ If no logged in user is found, it will launch the user-defined software for the 
 
 ### IdleMon
 
-Runs in the current logged in user's Desktop environment, automatically started by the IdleService using CreateProcessAsUser.
-IdleMon starts a NamedPipe server which IdleService connects to and, using that pipe, tells the service whether the user is idle or if the user chooses, through a task tray icon, to pause mining.
+Runs in the current logged in user's Desktop environment, automatically started by the MiningService using CreateProcessAsUser.
+IdleMon starts a NamedPipe server which MiningService connects to and, using that pipe, tells the service whether the user is idle or if the user chooses, through a task tray icon, to pause mining.
 
 
 ## Current todo list
 - [X] Most things work!
 - [X] Load configuration from JSON file
 - [X] Load user-defined programs for different conditions
-- [X] IdleService -> IdleMon communcation and notifications
+- [X] MiningService -> IdleMon communcation and notifications
 - [X] Stealth mode, which hides the task tray options (you must recompile it with the stealthMode option set to true in IdleMon)
 - [X] Debug/Log output, configurable from configuration JSON
 - [X] Monitor for fullscreen programs with IdleMon and stop mining if detected
