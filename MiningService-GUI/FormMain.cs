@@ -311,6 +311,13 @@ namespace MiningService
 
         private void uninstallServiceToolStripMenuItem_Click(object sender, EventArgs e)
         {
+
+            if (!Utilities.IsAdministrator())
+            {
+                MessageBox.Show("You must run the GUI with Admin rights to do this.");
+                return;
+            }
+
             if (!File.Exists("MiningService.exe"))
             {
                 MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
@@ -321,6 +328,13 @@ namespace MiningService
 
         private void installServiceToolStripMenuItem_Click(object sender, EventArgs e)
         {
+
+            if (!Utilities.IsAdministrator())
+            {
+                MessageBox.Show("You must run the GUI with Admin rights to do this.");
+                return;
+            }
+
             if (!File.Exists("MiningService.exe"))
             {
                 MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
