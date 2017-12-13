@@ -143,3 +143,15 @@ https://stackoverflow.com/questions/3743956/is-there-a-way-to-check-to-see-if-an
 Newtonsoft.Json
 TopShelf
 And probably one or two I'm not thinking of.
+
+### Donations
+I worked a lot on this, but there is no fee for using it! If you appreciate my efforts, you can send a donation to any of these addresses.
+
+ * BTC: 1QDVJmxyqMzA5nQghKMBCFVk8K41nSoz5b
+ * ETH: 0xa62a11710cc44Bd54D66CbCcF710a36716BF04CE
+ * Monero: 43tVLRGvcaadfw4HrkUcpEKmZd9Y841rGKvsLZW8XvEVSBX1GrGezWvQYDdoNwNHAwTqSyK7iqyyqMSpDoUVKQmM43nzT72
+ * UBQ: 0x0c0ff71b06413865fe9fE9a4C40396c136a62980
+ * DCR: DsfPh3tpa7nd8sExYvxWbijzjUH1zJ34dgu
+ * HUSH: t1ZHrvmtgd3129iYEcFm21XMv5ojdh2xmsf
+ * ZEN: znTmG8nid2LEYgw8cub17Q7briGATan4c68
+ 
