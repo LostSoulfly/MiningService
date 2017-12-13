@@ -5,7 +5,14 @@ Comprised of two separate programs.
 
 This is an idle miner software; it should detect whether your computer is idle or locked and mine accordingly based on your settings. Most features are implemented and (should be) working with the current release.
 
-![Screenshot](Screens/Service.PNG)
+#### MinerService running as a non-service
+![Screenshot](Screens/Service.png)
+
+#### GUI, with Miner Editor
+![Screenshot](Screens/GUI.png)
+
+#### Notification
+![Screenshot](Screens/Notification.png)
 
 ## How to use
 First, download the newest version from the Releases page, or compile it yourself. VS 2017 recommended.
@@ -125,7 +132,7 @@ IdleMon starts a NamedPipe server which IdleService connects to and, using that 
 - [X] Whitelist for fullscreen apps loaded from configuration
 - [X] Monitor CPU usage and stop non-Idle mining if over a set threshold
 - [X] Average the CPU usage over a period of time longer than 1s, and stop programs if usage is too high while not idle
-- [ ] GUI to easily modify configuration JSON
+- [X] GUI to easily modify configuration JSON
 - [ ] Monitor GPU temperature and stop programs if over a threshold
 - [ ] Monitor CPU temperature and stop programs if over a threshold
 
