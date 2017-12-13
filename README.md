@@ -1,7 +1,5 @@
 # MiningService
-TopShelf service and userland idle monitor for easy crypto mining
-
-Comprised of two separate programs.
+TopShelf service and userland idle monitor for easy crypto mining.
 
 This is an idle miner software; it should detect whether your computer is idle or locked and mine accordingly based on your settings. Most features are implemented and (should be) working with the current release.
 
