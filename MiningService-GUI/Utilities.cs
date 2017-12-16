@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Security.Principal;
 using System.Text;
@@ -54,6 +56,23 @@ namespace MiningService
             var identity = WindowsIdentity.GetCurrent();
             var principal = new WindowsPrincipal(identity);
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        public static bool KillProcess(string proc)
+        {
+            try
+            {
+                foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
+                {
+                    p.Kill();
+                }
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

@@ -305,8 +305,10 @@ namespace MiningService
             {
                 MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
             }
-
+            
             Process.Start("MiningService.exe", "stop");
+            Utilities.KillProcess("MiningService.exe");
+            Utilities.KillProcess("IdleMon.exe");
         }
 
         private void uninstallServiceToolStripMenuItem_Click(object sender, EventArgs e)
