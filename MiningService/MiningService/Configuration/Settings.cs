@@ -50,6 +50,8 @@ namespace MiningService
         [JsonProperty]
         public string urlToCheckForNetwork { get; set; }
 
+        public bool showDesktopNotifications { get; set; }
+
         [JsonProperty]
         public int minutesUntilIdle { get; set; }
 
