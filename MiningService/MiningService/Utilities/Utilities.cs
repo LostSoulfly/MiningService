@@ -167,26 +167,33 @@ namespace MiningService
                 Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
 
                 if (miner.minerDisabled || (!miner.mineWhileNotIdle && !Config.isUserIdle))
-                    disabled++;
+                {
+                    if (proc.Length > 0)
+                        KillProcess(miner.executable);
 
-                if (miner.isMiningIdleSpeed != isUserIdle && !miner.minerDisabled)
-                {
-                    Utilities.Debug("Miner " + miner.executable + " is not running in correct mode!");
-                    KillProcess(miner.executable);
-                    areMinersRunning = false;
+                    disabled++;
                 }
-                else if (proc.Length == 0)
+                else
                 {
-                    areMinersRunning = false;
-                }
-                else if (proc.Length > 0)
-                {
-                    areMinersRunning = true;
-                    miner.launchAttempts = 0;
+                    if (miner.isMiningIdleSpeed != isUserIdle && !miner.minerDisabled && (miner.idleArguments != miner.activeArguments))
+                    {
+                        Utilities.Debug("Miner " + miner.executable + " is not running in correct mode!");
+                        KillProcess(miner.executable);
+                        areMinersRunning = false;
+                    }
+                    else if (proc.Length == 0)
+                    {
+                        areMinersRunning = false;
+                    }
+                    else if (proc.Length > 0)
+                    {
+                        areMinersRunning = true;
+                        miner.launchAttempts = 0;
+                    }
                 }
             }
 
-            if (disabled == miners.Count)
+            if (disabled == miners.Count && disabled > 0)
                 areMinersRunning = true;
 
             Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning + " " + disabled + " " + miners.Count);
