@@ -24,7 +24,8 @@ namespace MiningService
             Fullscreen,
             IdleTime,
             Message,
-            IgnoreFullscreenApp
+            IgnoreFullscreenApp,
+            Notifications
         }
 
         #region Json API for XMR-STAK-CPU only
@@ -68,7 +69,7 @@ namespace MiningService
         private HostControl host;
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
-        internal NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
+        public NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
 
         private Timer minerTimer = new Timer(5000);
         private Timer sessionTimer = new Timer(10000);
@@ -122,9 +123,36 @@ namespace MiningService
 
             //Kill and miners and IdleMons that may be running, just in case!
             Utilities.KillMiners();
-            Utilities.KillProcess(Config.idleMonExecutable);
+            Utilities.KillIdlemon(client);
 
             Config.isPipeConnected = false;
+
+            Timer networkTimer = new Timer(10000);
+
+            networkTimer.Elapsed += (sender, e) =>
+            {
+                if (Utilities.CheckForInternetConnection())
+                {
+                    StartTimers();
+                    networkTimer.Stop();
+                }
+            };
+            
+            if (!Utilities.CheckForInternetConnection())
+            {
+                networkTimer.Start();
+            }
+            else
+            {
+                StartTimers();
+            }
+
+            Utilities.Log("MiningService is running");
+            return true;
+        }
+
+        public void StartTimers()
+        {
             minerTimer.Start();
             sessionTimer.Start();
             //apiCheckTimer.Start();
@@ -140,9 +168,6 @@ namespace MiningService
 
             Config.currentSessionId = ProcessExtensions.GetSession();
             Utilities.CheckForSystem(Config.currentSessionId);
-
-            Utilities.Log("MiningService is running");
-            return true;
         }
 
         public void Stop()
@@ -150,6 +175,9 @@ namespace MiningService
             lock (Config.timeLock)
             {
                 Utilities.Log("Stopping MiningService..");
+
+                Utilities.KillMiners();
+                Utilities.KillIdlemon(client);
                 minerTimer.Stop();
                 sessionTimer.Stop();
                 //apiCheckTimer.Stop();
@@ -160,8 +188,6 @@ namespace MiningService
                 if (Config.settings.preventSleep)
                     Utilities.AllowSleep();
 
-                Utilities.KillMiners();
-                Utilities.KillProcess(Config.idleMonExecutable);
             }
             Utilities.Log("Successfully stopped MiningService.");
         }
@@ -244,17 +270,7 @@ namespace MiningService
                     break;
 
                 case ((int)PacketID.Stop):
-
-                    client.PushMessage(new IdleMessage
-                    {
-                        packetId = (int)PacketID.Stop,
-                        isIdle = false,
-                        requestId = (int)PacketID.None,
-                        data = ""
-                    });
-
-                    System.Threading.Thread.Sleep(3000);  //Give IdleMon 3 seconds to stop running and clear its tray icon.
-
+                    
                     Abort();
 
                     break;
@@ -303,15 +319,15 @@ namespace MiningService
                         data = ""
                     });
 
-                    /*
+                    
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Stealth,
-                        isIdle = Config.settings.stealthMode,
+                        packetId = (int)PacketID.Notifications,
+                        isIdle = Config.settings.showDesktopNotifications,
                         requestId = (int)PacketID.None,
                         data = ""
                     });
-                    */
+                    
 
                     connection.PushMessage(new IdleMessage
                     {

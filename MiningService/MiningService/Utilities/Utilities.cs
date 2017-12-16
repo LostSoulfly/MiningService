@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Message;
+using NamedPipeWrapper;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -13,7 +15,7 @@ namespace MiningService
         #region Public variables
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
-        public static string version = "0.1.1a";
+        public static string version = "0.1.2";
 
         #endregion Public variables
 
@@ -196,7 +198,7 @@ namespace MiningService
             if (disabled == miners.Count && disabled > 0)
                 areMinersRunning = true;
 
-            Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning + " " + disabled + " " + miners.Count);
+            //Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning + " " + disabled + " " + miners.Count);
             return areMinersRunning;
         }
 
@@ -280,7 +282,7 @@ namespace MiningService
                 }
             }
 
-            Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
+            //Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
 
             Config.isCurrentlyMining = true;
             return !launchIssues;
@@ -332,14 +334,35 @@ namespace MiningService
                 }
             }
 
-            Debug("KillMiners exited");
+            //Debug("KillMiners exited");
 
             //we're no longer mining
             Config.isCurrentlyMining = false;
         }
 
-        public static bool KillProcess(string proc)
+        public static void KillIdlemon(NamedPipeClient<IdleMessage> client)
         {
+            //Debug("KillMiners entered");
+            //loop through the CPU miner list and kill all miners
+            if (IsProcessRunning(Config.idleMonExecutable) && Config.isPipeConnected)
+            {
+                client.PushMessage(new IdleMessage
+                {
+                    packetId = (int)MyService.PacketID.Stop,
+                    isIdle = false,
+                    requestId = (int)MyService.PacketID.None,
+                    data = ""
+                });
+
+                System.Threading.Thread.Sleep(1000);
+
+                if (IsProcessRunning(Config.idleMonExecutable))
+                    KillProcess(Config.idleMonExecutable);
+            }
+        }
+
+            public static bool KillProcess(string proc)
+            {
             bool cantKillProcess = false;
 
             //Debug("KillProcess entered: " + proc);
@@ -355,7 +378,7 @@ namespace MiningService
                     if (!p.HasExited)
                         cantKillProcess = true;
 
-                    Debug("Killed " + proc);
+                    Debug("Killed " + proc + "(" + cantKillProcess + ")");
                 }
             }
             catch (Exception ex)
@@ -364,7 +387,7 @@ namespace MiningService
                 return false;
             }
 
-            Debug("KillProcess exited. cantKillProcess: " + cantKillProcess);
+            //Debug("KillProcess exited. cantKillProcess: " + cantKillProcess);
 
             //if we can't kill one of the processes, we should return FALSE!
             return !cantKillProcess;
