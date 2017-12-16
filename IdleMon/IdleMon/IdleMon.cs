@@ -24,7 +24,8 @@ namespace IdleMon
             Fullscreen,
             IdleTime,
             Message,
-            IgnoreFullscreenApp
+            IgnoreFullscreenApp,
+            Notifications
         }
 
         public static bool stealthMode = false;
@@ -74,9 +75,7 @@ namespace IdleMon
                 {
                     if (!connectedToService && !stealthMode)
                     {
-                        TrayIcon.BalloonTipText = "Unable to connect to MiningService. Please make sure it is running!";
-                        TrayIcon.BalloonTipIcon = ToolTipIcon.Error;
-                        TrayIcon.ShowBalloonTip(3000);
+                        ShowNotification("Unable to connect to MiningService. Please make sure it is running!", ToolTipIcon.Error, 3000);
                     }
                 };
                 myTimer.AutoReset = false;
@@ -249,17 +248,13 @@ namespace IdleMon
             if (stateToSet)
             {
                 PauseMenuItem.Text = "Resume mining";
-                TrayIcon.BalloonTipText = "Pausing all mining.";
-                TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                if (showTrayNotification) ShowNotification("Pausing all mining.", ToolTipIcon.None, 1000);
             }
             else
             {
                 PauseMenuItem.Text = "Pause mining";
-                TrayIcon.BalloonTipText = "Mining has been resumed.";
-                TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                if (showTrayNotification) ShowNotification("Mining has been resumed.", ToolTipIcon.None, 1000);
             }
-
-            if (showTrayNotification) TrayIcon.ShowBalloonTip(1000);
         }
 
         private void OnTimedEvent(object source, ElapsedEventArgs e)
@@ -369,9 +364,8 @@ namespace IdleMon
                 case ((int)PacketID.Message):
                     if (TrayIcon != null)
                     {
-                        TrayIcon.BalloonTipText = message.data;
-                        TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-                        TrayIcon.ShowBalloonTip(1000);
+
+                        ShowNotification(message.data, ToolTipIcon.None, 1000);
                     }
                     break;
 
@@ -395,6 +389,12 @@ namespace IdleMon
                     Utilities.Log("Received IgnoreFullscreenApp: " + message.data);
                     break;
 
+                case ((int)PacketID.Notifications):
+
+                    Utilities.ShowDesktopNotifications = message.isIdle;
+
+                    break;
+
                 case ((int)PacketID.Hello):
 
                     if (message.requestId == (int)PacketID.Pause)
@@ -402,9 +402,7 @@ namespace IdleMon
                         PauseMining(stateToSet: true, showTrayNotification: false);
                         if (TrayIcon != null)
                         {
-                            TrayIcon.BalloonTipText = "Connected to MiningService! Mining is currently Paused.";
-                            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-                            TrayIcon.ShowBalloonTip(1000);
+                            ShowNotification("Connected to MiningService! Mining is currently Paused.", ToolTipIcon.None, 1000);
                         }
                     }
 
@@ -414,6 +412,19 @@ namespace IdleMon
                     }
                     break;
             }
+        }
+
+        private void ShowNotification(string message, ToolTipIcon icon, int time)
+        {
+            if (!Utilities.ShowDesktopNotifications)
+                return;
+
+            if (TrayIcon == null)
+                return;
+
+            TrayIcon.BalloonTipText = message;
+            TrayIcon.BalloonTipIcon = icon;
+            TrayIcon.ShowBalloonTip(time);
         }
 
         private void OnClientDisconnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
