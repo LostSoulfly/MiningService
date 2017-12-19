@@ -77,6 +77,9 @@ namespace MiningService
             //This is called to verify network connectivity, I personally use a MinerProxy instance's built-in web server API at /status, which returns "True".
             //In theory, anything that actually loads should work.
 
+            if (!Config.settings.verifyNetworkConnectivity)
+                return true;
+
             try
             {
                 using (var client = new System.Net.WebClient())

@@ -139,13 +139,9 @@ namespace MiningService
             };
             
             if (!Utilities.CheckForInternetConnection())
-            {
                 networkTimer.Start();
-            }
             else
-            {
                 StartTimers();
-            }
 
             Utilities.Log("MiningService is running");
             return true;
