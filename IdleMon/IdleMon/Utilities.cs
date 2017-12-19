@@ -13,6 +13,7 @@ namespace idleMon
         public static bool lastState;
         public static string fullscreenAppName;
         public static bool ShowDesktopNotifications;
+        public static bool CheckIfFullscreenAppStillRunning;
         public static List<string> ignoredFullscreenApps = new List<string>();
 
         [StructLayout(LayoutKind.Sequential)]
@@ -80,6 +81,16 @@ namespace idleMon
             {
                 return string.Empty;
             }
+        }
+
+        public static bool IsProcessRunning(string process)
+        {
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
+
+            if (proc.Length == 0)
+                return false;
+
+            return true;
         }
 
         public static void Log(string text)

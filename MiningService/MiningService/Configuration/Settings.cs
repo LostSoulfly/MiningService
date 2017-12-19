@@ -15,8 +15,9 @@ namespace MiningService
         [JsonProperty]
         public bool monitorFullscreen { get; set; }
 
-        //[JsonProperty]
-        //public bool stealthMode { get; set; }
+        [JsonProperty]
+        public bool checkIfFullscreenAppStillRunning { get; set; }
+
         [JsonProperty]
         public bool preventSleep { get; set; }
 
@@ -48,9 +49,11 @@ namespace MiningService
         public bool verifyNetworkConnectivity { get; set; }
 
         [JsonProperty]
+        public bool showDesktopNotifications { get; set; }
+
+        [JsonProperty]
         public string urlToCheckForNetwork { get; set; }
 
-        public bool showDesktopNotifications { get; set; }
 
         [JsonProperty]
         public int minutesUntilIdle { get; set; }
