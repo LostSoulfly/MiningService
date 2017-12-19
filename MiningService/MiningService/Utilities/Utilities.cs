@@ -211,6 +211,7 @@ namespace MiningService
             psi.RedirectStandardOutput = false;
             psi.RedirectStandardError = false;
             psi.UseShellExecute = false;
+            psi.WorkingDirectory = Path.GetDirectoryName(exe);
 
             Process proc = new Process();
             proc.StartInfo = psi;
@@ -237,6 +238,7 @@ namespace MiningService
             psi.RedirectStandardOutput = false;
             psi.RedirectStandardError = false;
             psi.UseShellExecute = false;
+            psi.WorkingDirectory = Path.GetDirectoryName(miner.executable);
 
             Process proc = new Process();
             proc.StartInfo = psi;
