@@ -335,6 +335,7 @@ namespace MiningService
                 {
                     if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
                     {
+                        Debug("Killing miner " + miner.executable);
                         KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
                         miner.shouldMinerBeRunning = false;
                         miner.launchAttempts = 0;
@@ -352,6 +353,7 @@ namespace MiningService
                         Debug("Killing miner " + miner.executable);
                         KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
                         miner.shouldMinerBeRunning = false;
+                        miner.launchAttempts = 0;
                     }
                 }
             }
