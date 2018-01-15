@@ -67,7 +67,7 @@ namespace MiningService
                     p.Kill();
                 }
             }
-            catch (Exception ex)
+            catch
             {
                 return false;
             }

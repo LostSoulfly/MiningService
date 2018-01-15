@@ -116,7 +116,7 @@ namespace MiningService
                 client.ServerMessage += OnServerMessage;
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
-                
+
                 Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
             }
@@ -137,7 +137,7 @@ namespace MiningService
                     networkTimer.Stop();
                 }
             };
-            
+
             if (!Utilities.CheckForInternetConnection())
                 networkTimer.Start();
             else
@@ -231,6 +231,8 @@ namespace MiningService
                             data = "You have been detected as " + (message.isIdle ? "idle." : "active.")
                         });
 
+                        Config.cpuUsageQueue = new Queue<int>();
+
                         Config.isUserIdle = message.isIdle;
                         OnMinerTimerEvent(minerTimer, null);    //call the minerTime event immediately to process the change.
                     }
@@ -266,7 +268,7 @@ namespace MiningService
                     break;
 
                 case ((int)PacketID.Stop):
-                    
+
                     Abort();
 
                     break;
@@ -315,7 +317,7 @@ namespace MiningService
                         data = ""
                     });
 
-                    
+
                     connection.PushMessage(new IdleMessage
                     {
                         packetId = (int)PacketID.Notifications,
@@ -323,7 +325,7 @@ namespace MiningService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
-                    
+
 
                     connection.PushMessage(new IdleMessage
                     {
@@ -405,6 +407,7 @@ namespace MiningService
                         break;
 
                     case Topshelf.SessionChangeReasonCode.SessionUnlock:
+                    case Topshelf.SessionChangeReasonCode.ConsoleConnect:
                         Config.isUserLoggedIn = true;
                         Config.computerIsLocked = false;
                         Utilities.Log(string.Format("Session: {0} - Reason: {1} - Unlock", args.SessionId, args.ReasonCode));
@@ -425,8 +428,8 @@ namespace MiningService
                         Config.computerIsLocked = true;
                         Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteDisconnect", args.SessionId, args.ReasonCode));
                         Config.currentSessionId = ProcessExtensions.GetSession();
-                        if (Config.currentSessionId > 0)
-                            Config.isUserLoggedIn = true;
+                        //if (Config.currentSessionId > 0)
+                        //    Config.isUserLoggedIn = true;
                         Config.isUserIdle = true;
                         break;
 
@@ -446,6 +449,7 @@ namespace MiningService
                 Config.fullscreenDetected = false;
                 Utilities.KillMiners();
                 Utilities.KillProcess(Config.idleMonExecutable);
+                Config.cpuUsageQueue = new Queue<int>();
             }
         }
 
@@ -548,6 +552,7 @@ namespace MiningService
                     Utilities.KillProcess(Config.idleMonExecutable);
                     Utilities.LaunchProcess(Config.idleMonExecutable, "");
                 }
+                Config.isUserLoggedIn = true;
                 return;
             }
 
@@ -586,8 +591,10 @@ namespace MiningService
                 string args = Config.settings.stealthMode ? "-stealth" : "";
                 args += Config.settings.enableLogging ? "-log" : "";
                 */
-                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, null, null, false);
-                Utilities.Log("Attempting to start IdleMon in SessionID " + Config.currentSessionId);
+
+                Utilities.Log("Attempting to start IdleMon in SessionID " + Config.currentSessionId + ". User: " + Utilities.GetUsernameBySessionId(Config.currentSessionId, false));
+
+                ProcessExtensions.StartProcessAsCurrentUser(Config.idleMonExecutable, null, null, false, Config.currentSessionId);
                 return;
             }
             else if (!Config.isUserLoggedIn && Config.isPipeConnected)

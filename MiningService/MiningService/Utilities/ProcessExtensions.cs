@@ -162,7 +162,7 @@ namespace MiningService
         #endregion Win32 Structs
 
         // Gets the user token from the currently active session
-        private static bool GetSessionUserToken(ref IntPtr phUserToken)
+        private static bool GetSessionUserToken(ref IntPtr phUserToken, int sess = -1)
         {
             var bResult = false;
             var hImpersonationToken = IntPtr.Zero;
@@ -170,28 +170,35 @@ namespace MiningService
             var pSessionInfo = IntPtr.Zero;
             var sessionCount = 0;
 
-            // Get a handle to the user access token for the current active session.
-            if (WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE, 0, 1, ref pSessionInfo, ref sessionCount) != 0)
+            if (sess == -1)
             {
-                var arrayElementSize = Marshal.SizeOf(typeof(WTS_SESSION_INFO));
-                var current = pSessionInfo;
-
-                for (var i = 0; i < sessionCount; i++)
+                // Get a handle to the user access token for the current active session.
+                if (WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE, 0, 1, ref pSessionInfo, ref sessionCount) != 0)
                 {
-                    var si = (WTS_SESSION_INFO)Marshal.PtrToStructure((IntPtr)current, typeof(WTS_SESSION_INFO));
-                    current += arrayElementSize;
+                    var arrayElementSize = Marshal.SizeOf(typeof(WTS_SESSION_INFO));
+                    var current = pSessionInfo;
 
-                    if (si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
+                    for (var i = 0; i < sessionCount; i++)
                     {
-                        activeSessionId = si.SessionID;
+                        var si = (WTS_SESSION_INFO)Marshal.PtrToStructure((IntPtr)current, typeof(WTS_SESSION_INFO));
+                        current += arrayElementSize;
+
+                        if (si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
+                        {
+                            activeSessionId = si.SessionID;
+                        }
                     }
                 }
-            }
 
-            // If enumerating did not work, fall back to the old method
-            if (activeSessionId == INVALID_SESSION_ID)
+                // If enumerating did not work, fall back to the old method
+                if (activeSessionId == INVALID_SESSION_ID)
+                {
+                    activeSessionId = WTSGetActiveConsoleSessionId();
+                }
+            }
+            else
             {
-                activeSessionId = WTSGetActiveConsoleSessionId();
+                activeSessionId = (uint)sess;
             }
 
             if (WTSQueryUserToken(activeSessionId, ref hImpersonationToken) != 0)
@@ -213,6 +220,7 @@ namespace MiningService
             var activeSessionId = INVALID_SESSION_ID;
             var pSessionInfo = IntPtr.Zero;
             var sessionCount = 0;
+            var listening = false;
 
             // Get a handle to the user access token for the current active session.
             if (WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE, 0, 1, ref pSessionInfo, ref sessionCount) != 0)
@@ -224,24 +232,33 @@ namespace MiningService
                 {
                     var si = (WTS_SESSION_INFO)Marshal.PtrToStructure((IntPtr)current, typeof(WTS_SESSION_INFO));
                     current += arrayElementSize;
-
+                    
                     if (si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
                     {
                         activeSessionId = si.SessionID;
                     }
+                    else if (si.State == WTS_CONNECTSTATE_CLASS.WTSListen)
+                    {
+                        listening = true;
+                    }
                 }
             }
+
+            if (activeSessionId == INVALID_SESSION_ID && listening == true)
+                activeSessionId = 0;
 
             // If enumerating did not work, fall back to the old method
             if (activeSessionId == INVALID_SESSION_ID)
             {
-                activeSessionId = WTSGetActiveConsoleSessionId();
+                //Utilities.Debug("INVALID_SESSION_ID " + activeSessionId);
+                //activeSessionId = WTSGetActiveConsoleSessionId();
+                activeSessionId = 0;
             }
 
             return (int)activeSessionId;
         }
 
-        public static bool StartProcessAsCurrentUser(string appPath, string cmdLine = null, string workDir = null, bool visible = true)
+        public static bool StartProcessAsCurrentUser(string appPath, string cmdLine = null, string workDir = null, bool visible = true, int sessionID = -1)
         {
             var hUserToken = IntPtr.Zero;
             var startInfo = new STARTUPINFO();
@@ -253,7 +270,7 @@ namespace MiningService
 
             try
             {
-                if (!GetSessionUserToken(ref hUserToken))
+                if (!GetSessionUserToken(ref hUserToken, sessionID))
                 {
                     Utilities.Log("StartProcessAsCurrentUser: GetSessionUserToken failed.");
                 }

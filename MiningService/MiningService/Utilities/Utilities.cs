@@ -15,7 +15,8 @@ namespace MiningService
         #region Public variables
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
-        public static string version = "0.1.2";
+        public static string version = "0.1.3";
+        private static bool isSystem;
 
         #endregion Public variables
 
@@ -198,7 +199,7 @@ namespace MiningService
                 }
             }
 
-            if (disabled == miners.Count && disabled > 0)
+            if (disabled == miners.Count)
                 areMinersRunning = true;
 
             //Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning + " " + disabled + " " + miners.Count);
@@ -218,7 +219,14 @@ namespace MiningService
 
             Debug("Starting Process " + exe + " " + args);
 
-            proc = Process.Start(exe, args);
+            try
+            {
+                proc = Process.Start(exe, args);
+            }
+            catch (Exception ex)
+            {
+                Log("LaunchProcess exe: " + ex.ToString());
+            }
             return proc.Id;
         }
 
@@ -227,6 +235,8 @@ namespace MiningService
         {
             if (miner.minerDisabled)
                 return 0;
+
+            miner.launchAttempts++;
 
             string arguments = Config.isUserIdle ? miner.idleArguments : miner.activeArguments;
             miner.isMiningIdleSpeed = Config.isUserIdle;
@@ -247,8 +257,14 @@ namespace MiningService
 
             miner.isMiningIdleSpeed = Config.isUserIdle;
 
-            proc = Process.Start(miner.executable, arguments);
-            miner.launchAttempts++;
+            try
+            {
+                proc = Process.Start(miner.executable, arguments);
+            }
+            catch (Exception ex)
+            {
+                Log("launchProcess miner: " + ex.ToString());
+            }
             return proc.Id;
         }
 
@@ -266,7 +282,7 @@ namespace MiningService
 
                 if ((miner.shouldMinerBeRunning && !miner.minerDisabled) &&
                     (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) &&
-                    miner.launchAttempts <= 4 && !Config.isMiningPaused)
+                    miner.launchAttempts < 5 && !Config.isMiningPaused)
                 {
                     if (LaunchProcess(miner) <= 0)  //returns PID
                     {
@@ -280,7 +296,7 @@ namespace MiningService
                 {
                     miner.launchAttempts = 0;
                 }
-                else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts > 4 && !miner.minerDisabled)
+                else if (miner.launchAttempts > 4 && !miner.minerDisabled)
                 {
                     Log("Miner " + miner.executable + " has failed to launch 5 times, and is now disabled.");
                     miner.minerDisabled = true;
@@ -321,6 +337,7 @@ namespace MiningService
                     {
                         KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
                         miner.shouldMinerBeRunning = false;
+                        miner.launchAttempts = 0;
                     }
                 }
             }
@@ -366,8 +383,8 @@ namespace MiningService
             }
         }
 
-            public static bool KillProcess(string proc)
-            {
+        public static bool KillProcess(string proc)
+        {
             bool cantKillProcess = false;
 
             //Debug("KillProcess entered: " + proc);
@@ -376,14 +393,15 @@ namespace MiningService
             {
                 foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
                 {
-                    Debug("Process found: " + p.Id);
-                    p.Kill();
-                    p.WaitForExit(3000);    //wait a max of 3 seconds for the process to terminate
+                    Debug("Process found: " + p.Id + " - " + p.ProcessName);
+                    if (!p.HasExited) p.Kill();
+
+                    p.WaitForExit(2000);    //wait a max of 2 seconds for the process to terminate
 
                     if (!p.HasExited)
                         cantKillProcess = true;
 
-                    Debug("Killed " + proc + "(" + cantKillProcess + ")");
+                    Debug("Killed " + p.ProcessName + "(" + cantKillProcess + ")");
                 }
             }
             catch (Exception ex)
@@ -424,10 +442,13 @@ namespace MiningService
             return username;
         }
 
-        public static bool IsSystem()
+        public static bool IsSystem(bool cached = true)
         {
             //This is used to verify the service is running as an actual Service (Running as the SYSTEM user)
-            bool isSystem;
+
+            if (cached)
+                return isSystem;
+
             using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
             {
                 isSystem = identity.IsSystem;
@@ -484,6 +505,26 @@ namespace MiningService
               EXECUTION_STATE.ES_CONTINUOUS);
         }
 
+        public static TimeSpan UpTime
+        {
+            get
+            {
+                try
+                {
+                    using (var uptime = new PerformanceCounter("System", "System Up Time"))
+                    {
+                        uptime.NextValue();       //Call this an extra time before reading its value
+                        return TimeSpan.FromSeconds(uptime.NextValue());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug("UpTime: " + ex.Message);
+                    return TimeSpan.Zero;
+                }
+            }
+        }
+
         #endregion System/OS Utils
 
         #region Battery utils
@@ -499,6 +540,9 @@ namespace MiningService
                 return true;
 
             if (batteryPercent == 100)
+                return true;
+
+            if (SystemInformation.PowerStatus.BatteryChargeStatus == BatteryChargeStatus.Charging || SystemInformation.PowerStatus.BatteryChargeStatus == BatteryChargeStatus.High)
                 return true;
 
             return false;
