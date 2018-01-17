@@ -117,7 +117,7 @@ namespace MiningService
                 client.Error += OnError;
                 client.Disconnected += OnServerDisconnect;
 
-                Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem() + ". User: " + Environment.UserName);
+                Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem(false) + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
             }
 
