@@ -118,6 +118,8 @@ If no logged in user is found, it will launch the user-defined software for the 
 Runs in the current logged in user's Desktop environment, automatically started by the MiningService using CreateProcessAsUser.
 IdleMon starts a NamedPipe server which MiningService connects to and, using that pipe, tells the service whether the user is idle or if the user chooses, through a task tray icon, to pause mining.
 
+## Compiling
+Visual Studio 2017 is required. It should be as simple as opening the MiningService solution and doing a Build. You may need to restore Nuget packages by right-clicking on the solution and selecting "Restore nuget packages" if it does not restore them automatically on build.
 
 ## Current todo list
 - [X] Most things work!
