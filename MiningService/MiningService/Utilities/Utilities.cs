@@ -119,7 +119,7 @@ namespace MiningService
             }
             catch (Exception ex)
             {
-                Debug("GetCpuUsage: " + ex.Message);
+                //Debug("GetCpuUsage: " + ex.Message);
                 return 50;
             }
         }

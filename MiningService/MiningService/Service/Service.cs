@@ -558,11 +558,11 @@ namespace MiningService
 
             Config.currentSessionId = ProcessExtensions.GetSession();
 
-            Utilities.Debug("OnSessionTimer: SessionID " + Config.currentSessionId);
+            //Utilities.Debug("OnSessionTimer: SessionID " + Config.currentSessionId);
 
             Utilities.CheckForSystem(Config.currentSessionId);
 
-            Utilities.Debug(string.Format("Session: {0} - isLoggedIn: {1} - connected: {2} - sessionAttempts: {3} - isUserIdle: {4}", Config.currentSessionId, Config.isUserLoggedIn, Config.isPipeConnected, Config.sessionLaunchAttempts, Config.isUserIdle));
+            //Utilities.Debug(string.Format("Session: {0} - isLoggedIn: {1} - connected: {2} - sessionAttempts: {3} - isUserIdle: {4}", Config.currentSessionId, Config.isUserLoggedIn, Config.isPipeConnected, Config.sessionLaunchAttempts, Config.isUserIdle));
 
             if (Config.sessionLaunchAttempts > 4)
             {
@@ -613,7 +613,7 @@ namespace MiningService
 
         private void OnMinerTimerEvent(object sender, ElapsedEventArgs e)
         {
-            Utilities.Debug("OnMinerTimerEvent entered");
+            //Utilities.Debug("OnMinerTimerEvent entered");
             lock (Config.timeLock)
             {
                 if (Config.skipTimerCycles > 0)
@@ -625,19 +625,19 @@ namespace MiningService
 
                 if (Config.isMiningPaused)
                 {
-                    Utilities.Debug("Mining is paused");
+                    //Utilities.Debug("Mining is paused");
                     return;
                 }
 
                 if (Config.fullscreenDetected)
                 {
-                    Utilities.Debug("Mining is paused by fullscreen program.");
+                    //Utilities.Debug("Mining is paused by fullscreen program.");
                     return;
                 }
 
                 Utilities.GetCpuUsage();
 
-                Utilities.Debug("CpuUsageAverage: " + Config.CpuUsageAverage());
+                //Utilities.Debug("CpuUsageAverage: " + Config.CpuUsageAverage());
 
                 //If not idle, and currently mining
                 if ((!Config.isUserIdle && Config.isCurrentlyMining))

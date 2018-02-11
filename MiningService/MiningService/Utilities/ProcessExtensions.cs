@@ -232,7 +232,7 @@ namespace MiningService
                 {
                     var si = (WTS_SESSION_INFO)Marshal.PtrToStructure((IntPtr)current, typeof(WTS_SESSION_INFO));
                     current += arrayElementSize;
-                    
+
                     if (si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
                     {
                         activeSessionId = si.SessionID;
