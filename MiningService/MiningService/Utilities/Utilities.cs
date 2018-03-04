@@ -296,7 +296,7 @@ namespace MiningService
                 {
                     miner.launchAttempts = 0;
                 }
-                else if (miner.launchAttempts > 4 && !miner.minerDisabled)
+                else if (miner.launchAttempts == 4 && !miner.minerDisabled)
                 {
                     Log("Miner " + miner.executable + " has failed to launch 5 times, and is now disabled.");
                     miner.minerDisabled = true;
