@@ -39,6 +39,8 @@ namespace IdleMon
         private ToolStripMenuItem PauseMenuItem;
         private ToolStripMenuItem IgnoreFullscreenMenuItem;
 
+        private readonly object ContextMenuLock = new object();
+
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
 
@@ -106,11 +108,14 @@ namespace IdleMon
             {
                 fullscreenDetected = true;
                 Utilities.fullscreenAppName = fullscreenApp;
-                TrayIconContextMenu.SuspendLayout();
-                this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + Utilities.fullscreenAppName;
-                this.IgnoreFullscreenMenuItem.Visible = true;
-                TrayIconContextMenu.ResumeLayout(true);
-                TrayIcon.ContextMenuStrip = TrayIconContextMenu;
+                lock (ContextMenuLock)
+                {
+                    TrayIconContextMenu.SuspendLayout();
+                    this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + Utilities.fullscreenAppName;
+                    this.IgnoreFullscreenMenuItem.Visible = true;
+                    TrayIconContextMenu.ResumeLayout(true);
+                    TrayIcon.ContextMenuStrip = TrayIconContextMenu;
+                }
             }
 
             if (fullscreenDelay <= 0)
@@ -125,54 +130,65 @@ namespace IdleMon
 
         private void InitializeComponent()
         {
-            TrayIcon = new NotifyIcon();
-            Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
+            lock (ContextMenuLock)
+            {
+                TrayIcon = new NotifyIcon();
+                Application.ApplicationExit += new EventHandler(this.OnApplicationExit);
 
-            TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
-            TrayIcon.BalloonTipIcon = ToolTipIcon.None;
-            TrayIcon.Text = "IdleMon";
+                TrayIcon.BalloonTipText = "I am monitoring your computer for fullscreen programs and idle time!";
+                TrayIcon.BalloonTipIcon = ToolTipIcon.None;
+                TrayIcon.Text = "IdleMon";
 
-            TrayIcon.Icon = MiningService.Properties.Resources.TrayIcon;
+                TrayIcon.Icon = MiningService.Properties.Resources.TrayIcon;
 
-            //Optional - handle doubleclicks on the icon:
-            TrayIcon.DoubleClick += TrayIcon_DoubleClick;
+                //Optional - handle doubleclicks on the icon:
+                TrayIcon.DoubleClick += TrayIcon_DoubleClick;
+                //TrayIcon.MouseUp += TrayIcon_MouseUp;
 
-            //Optional - Add a context menu to the TrayIcon:
-            TrayIconContextMenu = new ContextMenuStrip();
-            CloseMenuItem = new ToolStripMenuItem();
-            PauseMenuItem = new ToolStripMenuItem();
-            IgnoreFullscreenMenuItem = new ToolStripMenuItem();
-            TrayIconContextMenu.SuspendLayout();
+                //Optional - Add a context menu to the TrayIcon:
+                TrayIconContextMenu = new ContextMenuStrip();
+                CloseMenuItem = new ToolStripMenuItem();
+                PauseMenuItem = new ToolStripMenuItem();
+                IgnoreFullscreenMenuItem = new ToolStripMenuItem();
+                TrayIconContextMenu.SuspendLayout();
 
-            // TrayIconContextMenu
-            this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] {
+                // TrayIconContextMenu
+                this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] {
                 this.CloseMenuItem, this.PauseMenuItem, this.IgnoreFullscreenMenuItem});
-            this.TrayIconContextMenu.Name = "TrayIconContextMenu";
-            this.TrayIconContextMenu.Size = new Size(153, 70);
+                this.TrayIconContextMenu.Name = "TrayIconContextMenu";
+                this.TrayIconContextMenu.Size = new Size(153, 70);
 
-            // CloseMenuItem
-            this.CloseMenuItem.Name = "CloseMenuItem";
-            this.CloseMenuItem.Size = new Size(152, 22);
-            this.CloseMenuItem.Text = "Exit IdleMon";
-            this.CloseMenuItem.Click += new EventHandler(this.CloseMenuItem_Click);
+                // CloseMenuItem
+                this.CloseMenuItem.Name = "CloseMenuItem";
+                this.CloseMenuItem.Size = new Size(152, 22);
+                this.CloseMenuItem.Text = "Exit IdleMon";
+                this.CloseMenuItem.Click += new EventHandler(this.CloseMenuItem_Click);
 
-            // PauseMenuItem
-            this.PauseMenuItem.Name = "PauseMenuItem";
-            this.PauseMenuItem.Size = new Size(152, 22);
-            this.PauseMenuItem.Text = "Pause mining";
-            this.PauseMenuItem.Click += new EventHandler(this.PauseMenuItem_Click);
+                // PauseMenuItem
+                this.PauseMenuItem.Name = "PauseMenuItem";
+                this.PauseMenuItem.Size = new Size(152, 22);
+                this.PauseMenuItem.Text = "Pause mining";
+                this.PauseMenuItem.Click += new EventHandler(this.PauseMenuItem_Click);
 
-            // IgnoreFullscreenMenuItem
-            this.IgnoreFullscreenMenuItem.Name = "IgnoreFullscreenMenuItem";
-            this.IgnoreFullscreenMenuItem.Size = new Size(152, 22);
-            this.IgnoreFullscreenMenuItem.Text = "Ignore Fullscreen App: ";
-            this.IgnoreFullscreenMenuItem.Click += new EventHandler(this.IgnoreFullscreenMenuItem_Click);
-            this.IgnoreFullscreenMenuItem.Visible = false;
+                // IgnoreFullscreenMenuItem
+                this.IgnoreFullscreenMenuItem.Name = "IgnoreFullscreenMenuItem";
+                this.IgnoreFullscreenMenuItem.Size = new Size(152, 22);
+                this.IgnoreFullscreenMenuItem.Text = "Ignore Fullscreen App: ";
+                this.IgnoreFullscreenMenuItem.Click += new EventHandler(this.IgnoreFullscreenMenuItem_Click);
+                this.IgnoreFullscreenMenuItem.Visible = false;
 
-            TrayIconContextMenu.ResumeLayout(false);
-            TrayIcon.ContextMenuStrip = TrayIconContextMenu;
+                TrayIconContextMenu.ResumeLayout(true);
+                TrayIcon.ContextMenuStrip = TrayIconContextMenu;
 
-            TrayIcon.Visible = true;
+                TrayIcon.Visible = true;
+            }
+        }
+        
+        private void TrayIcon_MouseUp(object sender, MouseEventArgs e)
+        {
+            //TrayIconContextMenu.AutoClose = true;
+            //TrayIconContextMenu.Show(Cursor.Position);
+            //TrayIconContextMenu.Focus();
         }
 
         private void IgnoreFullscreenMenuItem_Click(object sender, EventArgs e)
