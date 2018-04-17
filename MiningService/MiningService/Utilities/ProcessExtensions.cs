@@ -233,9 +233,16 @@ namespace MiningService
                     var si = (WTS_SESSION_INFO)Marshal.PtrToStructure((IntPtr)current, typeof(WTS_SESSION_INFO));
                     current += arrayElementSize;
 
+                    //Utilities.Debug(si.SessionID + ": CONNECTSTATE: " + si.State);
+
                     if (si.State == WTS_CONNECTSTATE_CLASS.WTSActive)
                     {
                         activeSessionId = si.SessionID;
+                    }
+                    else if (si.State == WTS_CONNECTSTATE_CLASS.WTSDisconnected && si.SessionID > 0 && activeSessionId == INVALID_SESSION_ID)
+                    {
+                        activeSessionId = si.SessionID;
+                        Config.remoteDisconnectedSession = (int)si.SessionID;
                     }
                     else if (si.State == WTS_CONNECTSTATE_CLASS.WTSListen)
                     {

@@ -422,7 +422,7 @@ namespace MiningService
 
         #region System/OS Utils
 
-        public static string GetUsernameBySessionId(int sessionId, bool prependDomain)
+        public static string GetUsernameBySessionId(int sessionId, bool prependDomain = false)
         {
             //This returns the current logged in user, or if none is found, SYSTEM.
             IntPtr buffer;
@@ -465,7 +465,7 @@ namespace MiningService
             //This checks who is currently logged into the active Windows Session (think Desktop user)
             if (Utilities.GetUsernameBySessionId(sessionId, false) == "SYSTEM")
             {
-                Debug("CheckForSystem: SYSTEM");
+                Debug("CheckForSystem: SYSTEM " + sessionId);
                 KillMiners();
                 KillProcess(Config.idleMonExecutable);
                 Config.isUserLoggedIn = false;

@@ -28,6 +28,7 @@ namespace MiningService
         internal static int currentSessionId { get; set; }
         internal static int skipTimerCycles { get; set; }
         internal static int sessionLaunchAttempts { get; set; }
+        internal static int remoteDisconnectedSession { get; set; }
 
         private static int cpuQueueLimit = 10;
         internal static Queue<int> cpuUsageQueue = new Queue<int>();

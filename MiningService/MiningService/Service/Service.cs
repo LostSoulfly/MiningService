@@ -427,10 +427,12 @@ namespace MiningService
                         Config.isUserLoggedIn = false;
                         Config.computerIsLocked = true;
                         Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteDisconnect", args.SessionId, args.ReasonCode));
-                        Config.currentSessionId = ProcessExtensions.GetSession();
+                        Config.currentSessionId = args.SessionId;
                         //if (Config.currentSessionId > 0)
                         //    Config.isUserLoggedIn = true;
+                        Config.remoteDisconnectedSession = args.SessionId;
                         Config.isUserIdle = true;
+                        return;
                         break;
 
                     case Topshelf.SessionChangeReasonCode.RemoteConnect:
@@ -445,7 +447,7 @@ namespace MiningService
                         Utilities.Debug(string.Format("Session: {0} - Other - Reason: {1}", args.SessionId, args.ReasonCode));
                         break;
                 }
-
+                Config.remoteDisconnectedSession = -1;
                 Config.fullscreenDetected = false;
                 Utilities.KillMiners();
                 Utilities.KillProcess(Config.idleMonExecutable);
@@ -606,7 +608,7 @@ namespace MiningService
             {
                 Config.sessionLaunchAttempts = 0;
 
-                if (Config.currentSessionId > 0)
+                if (Config.currentSessionId > 0 && Config.remoteDisconnectedSession == -1)
                     Config.isUserLoggedIn = true;
             }
         }
@@ -647,7 +649,7 @@ namespace MiningService
                     {
                         Utilities.KillMiners();
                         Config.skipTimerCycles = (int)(60000 / minerTimer.Interval);
-
+                        Utilities.Debug("Stop Mining, cpu threshold hit");
                         client.PushMessage(new IdleMessage
                         {
                             packetId = (int)PacketID.Message,
