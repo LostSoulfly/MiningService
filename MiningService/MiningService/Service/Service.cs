@@ -10,6 +10,15 @@ namespace MiningService
 {
     internal class MyService
     {
+        //TopShelf service controller
+        private HostControl host;
+
+        private Timer minerTimer = new Timer(5000);
+        private Timer sessionTimer = new Timer(10000);
+
+        //Pipe that is used to connect to the IdleMon running in the user's desktop session
+        public NamedPipeClient<IdleMessage> client;
+
         public enum PacketID
         {
             None,
@@ -30,52 +39,50 @@ namespace MiningService
 
         #region Json API for XMR-STAK-CPU only
 
+        public class Connection
+        {
+            public List<object> error_log { get; set; }
+            public int ping { get; set; }
+            public string pool { get; set; }
+            public int uptime { get; set; }
+        }
+
         public class Hashrate
         {
+            public double highest { get; set; }
             public List<List<double?>> threads { get; set; }
             public List<double?> total { get; set; }
-            public double highest { get; set; }
         }
 
         public class Results
         {
+            public double avg_time { get; set; }
+            public List<int> best { get; set; }
             public int diff_current { get; set; }
+            public List<object> error_log { get; set; }
+            public int hashes_total { get; set; }
             public int shares_good { get; set; }
             public int shares_total { get; set; }
-            public double avg_time { get; set; }
-            public int hashes_total { get; set; }
-            public List<int> best { get; set; }
-            public List<object> error_log { get; set; }
-        }
-
-        public class Connection
-        {
-            public string pool { get; set; }
-            public int uptime { get; set; }
-            public int ping { get; set; }
-            public List<object> error_log { get; set; }
         }
 
         public class XmrRoot
         {
+            public Connection connection { get; set; }
             public Hashrate hashrate { get; set; }
             public Results results { get; set; }
-            public Connection connection { get; set; }
         }
 
         #endregion Json API for XMR-STAK-CPU only
 
-        //TopShelf service controller
-        private HostControl host;
-
-        //Pipe that is used to connect to the IdleMon running in the user's desktop session
-        public NamedPipeClient<IdleMessage> client; // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-
-        private Timer minerTimer = new Timer(5000);
-        private Timer sessionTimer = new Timer(10000);
+        // = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
         //private Timer apiCheckTimer = new Timer(10000);
 
         #region TopShelf Start/Stop/Abort
+
+        public void Abort()
+        {
+            host.Stop();
+        }
 
         public bool Start(HostControl hc)
         {
@@ -183,25 +190,13 @@ namespace MiningService
 
                 if (Config.settings.preventSleep)
                     Utilities.AllowSleep();
-
             }
             Utilities.Log("Successfully stopped MiningService.");
-        }
-
-        public void Abort()
-        {
-            host.Stop();
         }
 
         #endregion TopShelf Start/Stop/Abort
 
         #region NamedPipe Events
-
-        private void OnServerDisconnect(NamedPipeConnection<IdleMessage, IdleMessage> connection)
-        {
-            Utilities.Log("MiningService Pipe disconnected");
-            Config.isPipeConnected = false;
-        }
 
         private void OnError(Exception exception)
         {
@@ -210,6 +205,12 @@ namespace MiningService
 
             client.Stop();
             client.Start();
+        }
+
+        private void OnServerDisconnect(NamedPipeConnection<IdleMessage, IdleMessage> connection)
+        {
+            Utilities.Log("MiningService Pipe disconnected");
+            Config.isPipeConnected = false;
         }
 
         private void OnServerMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
@@ -317,7 +318,6 @@ namespace MiningService
                         data = ""
                     });
 
-
                     connection.PushMessage(new IdleMessage
                     {
                         packetId = (int)PacketID.Notifications,
@@ -325,7 +325,6 @@ namespace MiningService
                         requestId = (int)PacketID.None,
                         data = ""
                     });
-
 
                     connection.PushMessage(new IdleMessage
                     {
@@ -384,6 +383,30 @@ namespace MiningService
         }
 
         #endregion NamedPipe Events
+
+        private void OnPowerChange(object sender, PowerModeChangedEventArgs e)
+        {
+            switch (e.Mode)
+            {
+                case PowerModes.Resume:
+                    Utilities.Debug("Resuming service");
+                    Start(host);
+                    break;
+
+                case PowerModes.Suspend:
+                    Utilities.Debug("Suspending service");
+                    Stop();
+                    break;
+
+                case PowerModes.StatusChange:
+                    //Utilities.Debug("Power changed: " + e.Mode.ToString()); // ie. weak battery
+                    break;
+
+                default:
+                    //Utilities.Debug("OnPowerChange: " + e.ToString());
+                    break;
+            }
+        }
 
         public void SessionChanged(SessionChangedArguments args)
         {
@@ -455,30 +478,6 @@ namespace MiningService
             }
         }
 
-        private void OnPowerChange(object sender, PowerModeChangedEventArgs e)
-        {
-            switch (e.Mode)
-            {
-                case PowerModes.Resume:
-                    Utilities.Debug("Resuming service");
-                    Start(host);
-                    break;
-
-                case PowerModes.Suspend:
-                    Utilities.Debug("Suspending service");
-                    Stop();
-                    break;
-
-                case PowerModes.StatusChange:
-                    //Utilities.Debug("Power changed: " + e.Mode.ToString()); // ie. weak battery
-                    break;
-
-                default:
-                    //Utilities.Debug("OnPowerChange: " + e.ToString());
-                    break;
-            }
-        }
-
         #region Old API Json reading section (not used)
 
         /*
@@ -539,11 +538,6 @@ namespace MiningService
         #endregion Old API Json reading section (not used)
 
         #region Timers/Events
-
-        private void OnSessionTimer(object sender, ElapsedEventArgs e)
-        {
-            CheckSession();
-        }
 
         private void CheckSession()
         {
@@ -678,7 +672,8 @@ namespace MiningService
 
                         Utilities.KillMiners();
                     }
-                    // regardless if we're mining, we can exit this method as we don't want to start mining now
+                    // regardless if we're mining, we can exit this method as we don't want to start
+                    // mining now
                     return;
                 }
 
@@ -726,6 +721,11 @@ namespace MiningService
                 //check cpu/gpu temps
             }
             //Utilities.Debug("OnMinerTimerEvent exited");
+        }
+
+        private void OnSessionTimer(object sender, ElapsedEventArgs e)
+        {
+            CheckSession();
         }
 
         #endregion Timers/Events

@@ -1,17 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MiningService
 {
-    class Utilities
+    internal class Utilities
     {
+        public static bool IsAdministrator()
+        {
+            var identity = WindowsIdentity.GetCurrent();
+            var principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        public static bool IsProcessRunning(string process)
+        {
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
+
+            if (proc.Length == 0)
+                return false;
+
+            return true;
+        }
+
+        public static bool KillProcess(string proc)
+        {
+            try
+            {
+                foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
+                {
+                    p.Kill();
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public static DialogResult ShowInputDialog(ref string input, string title)
         {
             System.Drawing.Size size = new System.Drawing.Size(200, 70);
@@ -49,40 +78,6 @@ namespace MiningService
             DialogResult result = inputBox.ShowDialog();
             input = textBox.Text;
             return result;
-        }
-
-        public static bool IsAdministrator()
-        {
-            var identity = WindowsIdentity.GetCurrent();
-            var principal = new WindowsPrincipal(identity);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
-        }
-
-        public static bool IsProcessRunning(string process)
-        {
-            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
-
-            if (proc.Length == 0)
-                return false;
-
-            return true;
-        }
-
-        public static bool KillProcess(string proc)
-        {
-            try
-            {
-                foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
-                {
-                    p.Kill();
-                }
-            }
-            catch
-            {
-                return false;
-            }
-
-            return true;
         }
     }
 }
