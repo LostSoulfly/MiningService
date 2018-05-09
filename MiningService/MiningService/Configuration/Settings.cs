@@ -5,6 +5,23 @@ namespace MiningService
 {
     public class Settings
     {
+        [JsonProperty]
+        public List<MinerList> cpuMiners = new List<MinerList>();
+
+        [JsonProperty]
+        public List<MinerList> gpuMiners = new List<MinerList>();
+
+        //[JsonProperty]
+        //public int resumePausedMiningAfterMinutes { get; set; }
+        [JsonProperty]
+        public List<string> ignoredFullscreenApps = new List<string>();
+
+        [JsonProperty]
+        public bool checkIfFullscreenAppStillRunning { get; set; }
+
+        [JsonProperty]
+        public int cpuUsageThresholdWhileNotIdle { get; set; }
+
         //Settings loaded from config file
         [JsonProperty]
         public bool enableDebug { get; set; }
@@ -13,31 +30,7 @@ namespace MiningService
         public bool enableLogging { get; set; }
 
         [JsonProperty]
-        public bool monitorFullscreen { get; set; }
-
-        [JsonProperty]
-        public bool checkIfFullscreenAppStillRunning { get; set; }
-
-        [JsonProperty]
-        public bool preventSleep { get; set; }
-
-        [JsonProperty]
-        public bool monitorCpuTemp { get; set; }
-
-        [JsonProperty]
-        public bool mineWithCpu { get; set; }
-
-        [JsonProperty]
         public int maxCpuTemp { get; set; }
-
-        [JsonProperty]
-        public int cpuUsageThresholdWhileNotIdle { get; set; }
-
-        [JsonProperty]
-        public bool monitorGpuTemp { get; set; }
-
-        [JsonProperty]
-        public bool mineWithGpu { get; set; }
 
         [JsonProperty]
         public int maxGpuTemp { get; set; }
@@ -46,7 +39,25 @@ namespace MiningService
         public bool mineIfBatteryNotFull { get; set; }
 
         [JsonProperty]
-        public bool verifyNetworkConnectivity { get; set; }
+        public bool mineWithCpu { get; set; }
+
+        [JsonProperty]
+        public bool mineWithGpu { get; set; }
+
+        [JsonProperty]
+        public int minutesUntilIdle { get; set; }
+
+        [JsonProperty]
+        public bool monitorCpuTemp { get; set; }
+
+        [JsonProperty]
+        public bool monitorFullscreen { get; set; }
+
+        [JsonProperty]
+        public bool monitorGpuTemp { get; set; }
+
+        [JsonProperty]
+        public bool preventSleep { get; set; }
 
         [JsonProperty]
         public bool showDesktopNotifications { get; set; }
@@ -54,20 +65,8 @@ namespace MiningService
         [JsonProperty]
         public string urlToCheckForNetwork { get; set; }
 
-
         [JsonProperty]
-        public int minutesUntilIdle { get; set; }
-
-        //[JsonProperty]
-        //public int resumePausedMiningAfterMinutes { get; set; }
-        [JsonProperty]
-        public List<string> ignoredFullscreenApps = new List<string>();
-
-        [JsonProperty]
-        public List<MinerList> cpuMiners = new List<MinerList>();
-
-        [JsonProperty]
-        public List<MinerList> gpuMiners = new List<MinerList>();
+        public bool verifyNetworkConnectivity { get; set; }
 
         public void SetupDefaultConfig()
         {

@@ -14,17 +14,14 @@ namespace MiningService
     {
         #region Public variables
 
+        private static bool isSystem;
+
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.1.3";
-        private static bool isSystem;
 
         #endregion Public variables
 
         #region DLLImports and enums (ThreadExecutionState, WTSQuerySession)
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern EXECUTION_STATE SetThreadExecutionState(
-        EXECUTION_STATE flags);
 
         [Flags]
         public enum EXECUTION_STATE : uint
@@ -33,12 +30,6 @@ namespace MiningService
             ES_DISPLAY_REQUIRED = 0x00000002,
             ES_CONTINUOUS = 0x80000000
         }
-
-        [DllImport("Wtsapi32.dll")]
-        private static extern bool WTSQuerySessionInformation(IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass, out System.IntPtr ppBuffer, out int pBytesReturned);
-
-        [DllImport("Wtsapi32.dll")]
-        private static extern void WTSFreeMemory(IntPtr pointer);
 
         public enum WtsInfoClass
         {
@@ -68,6 +59,16 @@ namespace MiningService
             WTSClientInfo,
             WTSSessionInfo,
         }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern EXECUTION_STATE SetThreadExecutionState(
+        EXECUTION_STATE flags);
+
+        [DllImport("Wtsapi32.dll")]
+        private static extern void WTSFreeMemory(IntPtr pointer);
+
+        [DllImport("Wtsapi32.dll")]
+        private static extern bool WTSQuerySessionInformation(IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass, out System.IntPtr ppBuffer, out int pBytesReturned);
 
         #endregion DLLImports and enums (ThreadExecutionState, WTSQuerySession)
 
@@ -134,33 +135,6 @@ namespace MiningService
 
         #region Process utilities
 
-        public static bool IsProcessRunning(string process)
-        {
-            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
-
-            if (proc.Length == 0)
-                return false;
-
-            if (proc.Length > 1)
-            {
-                Utilities.Debug("More than one " + process);
-                Utilities.KillProcess(process);
-                return false;
-            }
-
-            return true;
-        }
-
-        public static bool IsProcessRunning(MinerList miner)
-        {
-            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
-
-            if (proc.Length == 0)
-                return false;
-
-            return true;
-        }
-
         public static bool AreMinersRunning(List<MinerList> miners, bool isUserIdle)
         {
             bool areMinersRunning = true;
@@ -204,6 +178,167 @@ namespace MiningService
 
             //Debug("AreMinersRunning exited. areMinersRunning: " + areMinersRunning + " " + disabled + " " + miners.Count);
             return areMinersRunning;
+        }
+
+        public static bool IsProcessRunning(string process)
+        {
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
+
+            if (proc.Length == 0)
+                return false;
+
+            if (proc.Length > 1)
+            {
+                Utilities.Debug("More than one " + process);
+                Utilities.KillProcess(process);
+                return false;
+            }
+
+            return true;
+        }
+
+        public static bool IsProcessRunning(MinerList miner)
+        {
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
+
+            if (proc.Length == 0)
+                return false;
+
+            return true;
+        }
+
+        public static void KillIdlemon(NamedPipeClient<IdleMessage> client)
+        {
+            //Debug("KillMiners entered");
+            //loop through the CPU miner list and kill all miners
+            if (IsProcessRunning(Config.idleMonExecutable) && Config.isPipeConnected)
+            {
+                client.PushMessage(new IdleMessage
+                {
+                    packetId = (int)MyService.PacketID.Stop,
+                    isIdle = false,
+                    requestId = (int)MyService.PacketID.None,
+                    data = ""
+                });
+
+                System.Threading.Thread.Sleep(1000);
+
+                if (IsProcessRunning(Config.idleMonExecutable))
+                    KillProcess(Config.idleMonExecutable);
+            }
+        }
+
+        public static void KillMiners()
+        {
+            //Debug("KillMiners entered");
+            //loop through the CPU miner list and kill all miners
+            if (Config.settings.mineWithCpu)
+            {
+                foreach (var miner in Config.settings.cpuMiners)
+                {
+                    if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
+                    {
+                        Debug("Killing miner " + miner.executable);
+                        KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
+                        miner.shouldMinerBeRunning = false;
+                        miner.launchAttempts = 0;
+                    }
+                }
+            }
+
+            //loop through the GPU miner list and kill all miners
+            if (Config.settings.mineWithGpu)
+            {
+                foreach (var miner in Config.settings.gpuMiners)
+                {
+                    if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
+                    {
+                        Debug("Killing miner " + miner.executable);
+                        KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
+                        miner.shouldMinerBeRunning = false;
+                        miner.launchAttempts = 0;
+                    }
+                }
+            }
+
+            //Debug("KillMiners exited");
+
+            //we're no longer mining
+            Config.isCurrentlyMining = false;
+        }
+
+        public static bool KillProcess(string proc)
+        {
+            bool cantKillProcess = false;
+
+            //Debug("KillProcess entered: " + proc);
+
+            try
+            {
+                foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
+                {
+                    Debug("Process found: " + p.Id + " - " + p.ProcessName);
+                    if (!p.HasExited) p.Kill();
+
+                    p.WaitForExit(2000);    //wait a max of 2 seconds for the process to terminate
+
+                    if (!p.HasExited)
+                        cantKillProcess = true;
+
+                    Debug("Killed " + p.ProcessName + "(" + cantKillProcess + ")");
+                }
+            }
+            catch (Exception ex)
+            {
+                Utilities.Log("KillProcess: " + ex.Message + '\n' + ex.Source);
+                return false;
+            }
+
+            //Debug("KillProcess exited. cantKillProcess: " + cantKillProcess);
+
+            //if we can't kill one of the processes, we should return FALSE!
+            return !cantKillProcess;
+        }
+
+        public static bool LaunchMiners(List<MinerList> minerList)
+        {
+            bool launchIssues = false;
+            bool isRunning = false;
+
+            //Debug("LaunchMiners entered");
+
+            foreach (var miner in minerList)
+            {
+                isRunning = IsProcessRunning(miner);
+                Debug("shouldMinerBeRunning: (" + miner.executable + ") " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts: " + miner.launchAttempts);
+
+                if ((miner.shouldMinerBeRunning && !miner.minerDisabled) &&
+                    (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) &&
+                    miner.launchAttempts < 5 && !Config.isMiningPaused)
+                {
+                    if (LaunchProcess(miner) <= 0)  //returns PID
+                    {
+                        Utilities.Log("LaunchMiners: Unable to launch " + miner.executable + " " + (Config.isUserIdle ? miner.idleArguments : miner.activeArguments));
+                        launchIssues = true;
+                    }
+                    miner.shouldMinerBeRunning = true;
+                    miner.isMiningIdleSpeed = Config.isUserIdle;
+                }
+                else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
+                {
+                    miner.launchAttempts = 0;
+                }
+                else if (miner.launchAttempts == 4 && !miner.minerDisabled)
+                {
+                    Log("Miner " + miner.executable + " has failed to launch 5 times, and is now disabled.");
+                    miner.minerDisabled = true;
+                }
+            }
+
+            //Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
+
+            Config.isCurrentlyMining = true;
+            return !launchIssues;
         }
 
         public static int LaunchProcess(string exe, string args)
@@ -268,47 +403,6 @@ namespace MiningService
             return proc.Id;
         }
 
-        public static bool LaunchMiners(List<MinerList> minerList)
-        {
-            bool launchIssues = false;
-            bool isRunning = false;
-
-            //Debug("LaunchMiners entered");
-
-            foreach (var miner in minerList)
-            {
-                isRunning = IsProcessRunning(miner);
-                Debug("shouldMinerBeRunning: " + miner.shouldMinerBeRunning + " minerDisabled: " + miner.minerDisabled + " isRunning:" + isRunning + " isMiningIdleSpeed:" + miner.isMiningIdleSpeed + " launchAttempts: " + miner.launchAttempts);
-
-                if ((miner.shouldMinerBeRunning && !miner.minerDisabled) &&
-                    (!isRunning || (miner.isMiningIdleSpeed != Config.isUserIdle)) &&
-                    miner.launchAttempts < 5 && !Config.isMiningPaused)
-                {
-                    if (LaunchProcess(miner) <= 0)  //returns PID
-                    {
-                        Utilities.Log("LaunchMiners: Unable to launch " + miner.executable + " " + (Config.isUserIdle ? miner.idleArguments : miner.activeArguments));
-                        launchIssues = true;
-                    }
-                    miner.shouldMinerBeRunning = true;
-                    miner.isMiningIdleSpeed = Config.isUserIdle;
-                }
-                else if (miner.shouldMinerBeRunning && isRunning && miner.launchAttempts <= 4)
-                {
-                    miner.launchAttempts = 0;
-                }
-                else if (miner.launchAttempts == 4 && !miner.minerDisabled)
-                {
-                    Log("Miner " + miner.executable + " has failed to launch 5 times, and is now disabled.");
-                    miner.minerDisabled = true;
-                }
-            }
-
-            //Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
-
-            Config.isCurrentlyMining = true;
-            return !launchIssues;
-        }
-
         public static void MinersShouldBeRunning(List<MinerList> minerList)
         {
             foreach (var miner in minerList)
@@ -325,102 +419,54 @@ namespace MiningService
             }
         }
 
-        public static void KillMiners()
-        {
-            //Debug("KillMiners entered");
-            //loop through the CPU miner list and kill all miners
-            if (Config.settings.mineWithCpu)
-            {
-                foreach (var miner in Config.settings.cpuMiners)
-                {
-                    if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
-                    {
-                        Debug("Killing miner " + miner.executable);
-                        KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
-                        miner.shouldMinerBeRunning = false;
-                        miner.launchAttempts = 0;
-                    }
-                }
-            }
-
-            //loop through the GPU miner list and kill all miners
-            if (Config.settings.mineWithGpu)
-            {
-                foreach (var miner in Config.settings.gpuMiners)
-                {
-                    if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
-                    {
-                        Debug("Killing miner " + miner.executable);
-                        KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
-                        miner.shouldMinerBeRunning = false;
-                        miner.launchAttempts = 0;
-                    }
-                }
-            }
-
-            //Debug("KillMiners exited");
-
-            //we're no longer mining
-            Config.isCurrentlyMining = false;
-        }
-
-        public static void KillIdlemon(NamedPipeClient<IdleMessage> client)
-        {
-            //Debug("KillMiners entered");
-            //loop through the CPU miner list and kill all miners
-            if (IsProcessRunning(Config.idleMonExecutable) && Config.isPipeConnected)
-            {
-                client.PushMessage(new IdleMessage
-                {
-                    packetId = (int)MyService.PacketID.Stop,
-                    isIdle = false,
-                    requestId = (int)MyService.PacketID.None,
-                    data = ""
-                });
-
-                System.Threading.Thread.Sleep(1000);
-
-                if (IsProcessRunning(Config.idleMonExecutable))
-                    KillProcess(Config.idleMonExecutable);
-            }
-        }
-
-        public static bool KillProcess(string proc)
-        {
-            bool cantKillProcess = false;
-
-            //Debug("KillProcess entered: " + proc);
-
-            try
-            {
-                foreach (Process p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(proc)))
-                {
-                    Debug("Process found: " + p.Id + " - " + p.ProcessName);
-                    if (!p.HasExited) p.Kill();
-
-                    p.WaitForExit(2000);    //wait a max of 2 seconds for the process to terminate
-
-                    if (!p.HasExited)
-                        cantKillProcess = true;
-
-                    Debug("Killed " + p.ProcessName + "(" + cantKillProcess + ")");
-                }
-            }
-            catch (Exception ex)
-            {
-                Utilities.Log("KillProcess: " + ex.Message + '\n' + ex.Source);
-                return false;
-            }
-
-            //Debug("KillProcess exited. cantKillProcess: " + cantKillProcess);
-
-            //if we can't kill one of the processes, we should return FALSE!
-            return !cantKillProcess;
-        }
-
         #endregion Process utilities
 
         #region System/OS Utils
+
+        public static TimeSpan UpTime
+        {
+            get
+            {
+                try
+                {
+                    using (var uptime = new PerformanceCounter("System", "System Up Time"))
+                    {
+                        uptime.NextValue();       //Call this an extra time before reading its value
+                        return TimeSpan.FromSeconds(uptime.NextValue());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug("UpTime: " + ex.Message);
+                    return TimeSpan.Zero;
+                }
+            }
+        }
+
+        public static void AllowSleep()
+        {
+            //this sets the ThreadExecutionState to allow the computer to sleep.
+            SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS);
+        }
+
+        public static void CheckForSystem(int sessionId)
+        {
+            //todo: use the new static Config class, and set these variables
+            //This checks who is currently logged into the active Windows Session (think Desktop user)
+            if (Utilities.GetUsernameBySessionId(sessionId, false) == "SYSTEM")
+            {
+                Debug("CheckForSystem: SYSTEM " + sessionId);
+                KillMiners();
+                KillProcess(Config.idleMonExecutable);
+                Config.isUserLoggedIn = false;
+                Config.isPipeConnected = false;
+                Config.isUserIdle = true;
+            }
+            else
+            {
+                Config.isUserLoggedIn = true;
+            }
+        }
 
         public static string GetUsernameBySessionId(int sessionId, bool prependDomain = false)
         {
@@ -444,6 +490,12 @@ namespace MiningService
             return username;
         }
 
+        public static bool Is64BitOS()
+        {
+            //Returns true if the computer is 64bit
+            return (System.Environment.Is64BitOperatingSystem);
+        }
+
         public static bool IsSystem(bool cached = true)
         {
             //This is used to verify the service is running as an actual Service (Running as the SYSTEM user)
@@ -459,43 +511,12 @@ namespace MiningService
             return isSystem;
         }
 
-        public static void CheckForSystem(int sessionId)
-        {
-            //todo: use the new static Config class, and set these variables
-            //This checks who is currently logged into the active Windows Session (think Desktop user)
-            if (Utilities.GetUsernameBySessionId(sessionId, false) == "SYSTEM")
-            {
-                Debug("CheckForSystem: SYSTEM " + sessionId);
-                KillMiners();
-                KillProcess(Config.idleMonExecutable);
-                Config.isUserLoggedIn = false;
-                Config.isPipeConnected = false;
-                Config.isUserIdle = true;
-            }
-            else
-            {
-                Config.isUserLoggedIn = true;
-            }
-        }
-
         public static bool IsWinVistaOrHigher()
         {
             //This returns true if the OS version is higher than XP. XP machines generally speaking won't work well for mining.
             //Often times there will be .net issues as well, as we will be using a newer version of the .net framework
             OperatingSystem OS = Environment.OSVersion;
             return (OS.Platform == PlatformID.Win32NT) && (OS.Version.Major >= 6);
-        }
-
-        public static bool Is64BitOS()
-        {
-            //Returns true if the computer is 64bit
-            return (System.Environment.Is64BitOperatingSystem);
-        }
-
-        public static void AllowSleep()
-        {
-            //this sets the ThreadExecutionState to allow the computer to sleep.
-            SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS);
         }
 
         public static void PreventSleep()
@@ -507,29 +528,19 @@ namespace MiningService
               EXECUTION_STATE.ES_CONTINUOUS);
         }
 
-        public static TimeSpan UpTime
-        {
-            get
-            {
-                try
-                {
-                    using (var uptime = new PerformanceCounter("System", "System Up Time"))
-                    {
-                        uptime.NextValue();       //Call this an extra time before reading its value
-                        return TimeSpan.FromSeconds(uptime.NextValue());
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug("UpTime: " + ex.Message);
-                    return TimeSpan.Zero;
-                }
-            }
-        }
-
         #endregion System/OS Utils
 
         #region Battery utils
+
+        public static bool DoesBatteryExist()
+        {
+            System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
+
+            if (pw.BatteryChargeStatus == BatteryChargeStatus.NoSystemBattery)
+                return false;
+
+            return true;
+        }
 
         public static bool IsBatteryFull()
         {
@@ -550,34 +561,9 @@ namespace MiningService
             return false;
         }
 
-        public static bool DoesBatteryExist()
-        {
-            System.Windows.Forms.PowerStatus pw = SystemInformation.PowerStatus;
-
-            if (pw.BatteryChargeStatus == BatteryChargeStatus.NoSystemBattery)
-                return false;
-
-            return true;
-        }
-
         #endregion Battery utils
 
         #region Logging
-
-        public static void Log(string text, bool force = false)
-        {
-            if (!IsSystem())
-                Console.WriteLine(DateTime.Now.ToString() + " LOG: " + text);
-
-            try
-            {
-                if (force || Config.settings.enableLogging)
-                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + ") LOG: " + text + System.Environment.NewLine);
-            }
-            catch
-            {
-            }
-        }
 
         public static void Debug(string text)
         {
@@ -594,15 +580,24 @@ namespace MiningService
             }
         }
 
+        public static void Log(string text, bool force = false)
+        {
+            if (!IsSystem())
+                Console.WriteLine(DateTime.Now.ToString() + " LOG: " + text);
+
+            try
+            {
+                if (force || Config.settings.enableLogging)
+                    File.AppendAllText(ApplicationPath() + System.Environment.MachineName + ".txt", DateTime.Now.ToString() + " (" + Process.GetCurrentProcess().Id + ") LOG: " + text + System.Environment.NewLine);
+            }
+            catch
+            {
+            }
+        }
+
         #endregion Logging
 
         #region ApplicationPath
-
-        public static string ApplicationPath()
-        {
-            return PathAddBackslash(AppDomain.CurrentDomain.BaseDirectory);
-            //return System.Reflection.Assembly.GetExecutingAssembly().Location;
-        }
 
         private static string PathAddBackslash(string path)
         {
@@ -630,6 +625,12 @@ namespace MiningService
 
                 return Path.AltDirectorySeparatorChar;
             }
+        }
+
+        public static string ApplicationPath()
+        {
+            return PathAddBackslash(AppDomain.CurrentDomain.BaseDirectory);
+            //return System.Reflection.Assembly.GetExecutingAssembly().Location;
         }
 
         #endregion ApplicationPath

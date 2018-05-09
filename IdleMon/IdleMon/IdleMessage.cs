@@ -5,10 +5,10 @@ namespace Message
     [Serializable]
     internal class IdleMessage
     {
+        public string data;
+        public bool isIdle;
         public int packetId;
         public int requestId;
-        public bool isIdle;
-        public string data;
 
         public override string ToString()
         {

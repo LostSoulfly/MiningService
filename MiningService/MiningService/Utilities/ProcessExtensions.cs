@@ -7,17 +7,21 @@ namespace MiningService
     {
         #region Win32 Constants
 
-        private const int CREATE_UNICODE_ENVIRONMENT = 0x00000400;
-        private const int CREATE_NO_WINDOW = 0x08000000;
-
         private const int CREATE_NEW_CONSOLE = 0x00000010;
-
+        private const int CREATE_NO_WINDOW = 0x08000000;
+        private const int CREATE_UNICODE_ENVIRONMENT = 0x00000400;
         private const uint INVALID_SESSION_ID = 0xFFFFFFFF;
         private static readonly IntPtr WTS_CURRENT_SERVER_HANDLE = IntPtr.Zero;
 
         #endregion Win32 Constants
 
         #region DllImports
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hSnapshot);
+
+        [DllImport("userenv.dll", SetLastError = true)]
+        private static extern bool CreateEnvironmentBlock(ref IntPtr lpEnvironment, IntPtr hToken, bool bInherit);
 
         [DllImport("advapi32.dll", EntryPoint = "CreateProcessAsUser", SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern bool CreateProcessAsUser(
@@ -33,6 +37,10 @@ namespace MiningService
             ref STARTUPINFO lpStartupInfo,
             out PROCESS_INFORMATION lpProcessInformation);
 
+        [DllImport("userenv.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DestroyEnvironmentBlock(IntPtr lpEnvironment);
+
         [DllImport("advapi32.dll", EntryPoint = "DuplicateTokenEx")]
         private static extern bool DuplicateTokenEx(
             IntPtr ExistingTokenHandle,
@@ -42,22 +50,6 @@ namespace MiningService
             int ImpersonationLevel,
             ref IntPtr DuplicateTokenHandle);
 
-        [DllImport("userenv.dll", SetLastError = true)]
-        private static extern bool CreateEnvironmentBlock(ref IntPtr lpEnvironment, IntPtr hToken, bool bInherit);
-
-        [DllImport("userenv.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool DestroyEnvironmentBlock(IntPtr lpEnvironment);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool CloseHandle(IntPtr hSnapshot);
-
-        [DllImport("kernel32.dll")]
-        private static extern uint WTSGetActiveConsoleSessionId();
-
-        [DllImport("Wtsapi32.dll")]
-        private static extern uint WTSQueryUserToken(uint SessionId, ref IntPtr phToken);
-
         [DllImport("wtsapi32.dll", SetLastError = true)]
         private static extern int WTSEnumerateSessions(
             IntPtr hServer,
@@ -66,9 +58,23 @@ namespace MiningService
             ref IntPtr ppSessionInfo,
             ref int pCount);
 
+        [DllImport("kernel32.dll")]
+        private static extern uint WTSGetActiveConsoleSessionId();
+
+        [DllImport("Wtsapi32.dll")]
+        private static extern uint WTSQueryUserToken(uint SessionId, ref IntPtr phToken);
+
         #endregion DllImports
 
         #region Win32 Structs
+
+        private enum SECURITY_IMPERSONATION_LEVEL
+        {
+            SecurityAnonymous = 0,
+            SecurityIdentification = 1,
+            SecurityImpersonation = 2,
+            SecurityDelegation = 3,
+        }
 
         private enum SW
         {
@@ -86,6 +92,12 @@ namespace MiningService
             SW_RESTORE = 9,
             SW_SHOWDEFAULT = 10,
             SW_MAX = 10
+        }
+
+        private enum TOKEN_TYPE
+        {
+            TokenPrimary = 1,
+            TokenImpersonation = 2
         }
 
         private enum WTS_CONNECTSTATE_CLASS
@@ -111,14 +123,6 @@ namespace MiningService
             public uint dwThreadId;
         }
 
-        private enum SECURITY_IMPERSONATION_LEVEL
-        {
-            SecurityAnonymous = 0,
-            SecurityIdentification = 1,
-            SecurityImpersonation = 2,
-            SecurityDelegation = 3,
-        }
-
         [StructLayout(LayoutKind.Sequential)]
         private struct STARTUPINFO
         {
@@ -140,12 +144,6 @@ namespace MiningService
             public IntPtr hStdInput;
             public IntPtr hStdOutput;
             public IntPtr hStdError;
-        }
-
-        private enum TOKEN_TYPE
-        {
-            TokenPrimary = 1,
-            TokenImpersonation = 2
         }
 
         [StructLayout(LayoutKind.Sequential)]

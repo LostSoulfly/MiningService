@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
+using System.Timers;
 using MiningService;
 
 namespace MiningService
@@ -258,6 +259,7 @@ namespace MiningService
         {
             LoadSettings();
         }
+        
 
         private void button1_Click(object sender, EventArgs e)
         {
@@ -306,7 +308,14 @@ namespace MiningService
                 MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
             }
             
+            if (!Utilities.IsProcessRunning("MiningService.exe"))
+            {
+                MessageBox.Show("The MiningService is not currently running!");
+                return;
+            }
+
             Process.Start("MiningService.exe", "stop");
+            System.Threading.Thread.Sleep(2000);
             Utilities.KillProcess("MiningService.exe");
             Utilities.KillProcess("IdleMon.exe");
         }

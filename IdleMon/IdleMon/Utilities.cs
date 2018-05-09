@@ -9,12 +9,20 @@ namespace idleMon
 {
     internal class Utilities
     {
-        public static long minutesIdle = 10;
-        public static bool lastState;
-        public static string fullscreenAppName;
-        public static bool ShowDesktopNotifications;
         public static bool CheckIfFullscreenAppStillRunning;
+        public static string fullscreenAppName;
         public static List<string> ignoredFullscreenApps = new List<string>();
+        public static bool lastState;
+        public static long minutesIdle = 10;
+        public static bool ShowDesktopNotifications;
+
+        // credits https://goo.gl/VYDfZz
+        internal struct LASTINPUTINFO
+        {
+            public uint cbSize;
+
+            public uint dwTime;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT
@@ -25,14 +33,14 @@ namespace idleMon
             public int bottom;
         }
 
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(HandleRef hWnd, [In, Out] ref RECT rect);
 
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         public static string IsForegroundFullScreen()
         {
@@ -83,6 +91,18 @@ namespace idleMon
             }
         }
 
+        public static bool IsIdle() //In minutes
+        {
+            TimeSpan idleTime = TimeSpan.FromMilliseconds(IdleTimeFinder.GetIdleTime());
+
+            TimeSpan timeUntilIdle = TimeSpan.FromMinutes(minutesIdle);
+
+            if (TimeSpan.Compare(idleTime, timeUntilIdle) >= 0)
+                return true;
+
+            return false;
+        }
+
         public static bool IsProcessRunning(string process)
         {
             Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
@@ -106,26 +126,6 @@ namespace idleMon
             catch
             {
             }
-        }
-
-        public static bool IsIdle() //In minutes
-        {
-            TimeSpan idleTime = TimeSpan.FromMilliseconds(IdleTimeFinder.GetIdleTime());
-
-            TimeSpan timeUntilIdle = TimeSpan.FromMinutes(minutesIdle);
-
-            if (TimeSpan.Compare(idleTime, timeUntilIdle) >= 0)
-                return true;
-
-            return false;
-        }
-
-        // credits https://goo.gl/VYDfZz
-        internal struct LASTINPUTINFO
-        {
-            public uint cbSize;
-
-            public uint dwTime;
         }
 
         #region ApplicationPath
@@ -171,11 +171,11 @@ namespace idleMon
         /// </summary>
         public class IdleTimeFinder
         {
-            [DllImport("User32.dll")]
-            private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
-
             [DllImport("Kernel32.dll")]
             private static extern uint GetLastError();
+
+            [DllImport("User32.dll")]
+            private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
             public static uint GetIdleTime()
             {

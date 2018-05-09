@@ -58,6 +58,16 @@ namespace MiningService
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
+        public static bool IsProcessRunning(string process)
+        {
+            Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(process));
+
+            if (proc.Length == 0)
+                return false;
+
+            return true;
+        }
+
         public static bool KillProcess(string proc)
         {
             try

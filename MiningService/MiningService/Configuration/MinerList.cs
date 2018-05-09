@@ -2,6 +2,22 @@
 {
     public class MinerList
     {
+        internal bool isMiningIdleSpeed { get; set; }
+
+        internal int launchAttempts { get; set; }
+
+        internal bool shouldMinerBeRunning { get; set; }
+
+        public string activeArguments { get; set; }
+
+        public string executable { get; set; }
+
+        public string idleArguments { get; set; }
+
+        public bool minerDisabled { get; set; }
+
+        public bool mineWhileNotIdle { get; set; }
+
         public MinerList(string executable, string idleArguments, string activeArguments, bool mineWhileNotIdle)
         {
             this.executable = executable;
@@ -13,14 +29,5 @@
             minerDisabled = false;
             launchAttempts = 0;
         }
-
-        public string executable { get; set; }
-        public string idleArguments { get; set; }
-        public string activeArguments { get; set; }
-        public bool mineWhileNotIdle { get; set; }
-        internal int launchAttempts { get; set; }
-        public bool minerDisabled { get; set; }
-        internal bool shouldMinerBeRunning { get; set; }
-        internal bool isMiningIdleSpeed { get; set; }
     }
 }

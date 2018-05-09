@@ -10,6 +10,30 @@ namespace IdleMon
 {
     internal class IdleMonContext : ApplicationContext
     {
+        private readonly object ContextMenuLock = new object();
+        private ToolStripMenuItem CloseMenuItem;
+        private bool connectedToService;
+        private int fullscreenDelay;
+        private bool fullscreenDetected;
+        private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(5000);
+        private ToolStripMenuItem IgnoreFullscreenMenuItem;
+        private bool lowOnly;
+        private bool miningPaused;
+        private bool monitorFullscreen;
+        private ToolStripMenuItem PauseMenuItem;
+        private bool sentFirstTime;
+
+        //create the NamedPipe server for our Service communication
+        private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
+
+        private System.Timers.Timer timer = new System.Timers.Timer(3000);
+
+        //Where the actual program starts
+        private NotifyIcon TrayIcon;
+
+        private ContextMenuStrip TrayIconContextMenu;
+        public static bool enableLogging = false;
+        public static bool stealthMode = false;
         public enum PacketID
         {
             None,
@@ -27,33 +51,6 @@ namespace IdleMon
             IgnoreFullscreenApp,
             Notifications
         }
-
-        public static bool stealthMode = false;
-        public static bool enableLogging = false;
-
-        //Where the actual program starts
-        private NotifyIcon TrayIcon;
-
-        private ContextMenuStrip TrayIconContextMenu;
-        private ToolStripMenuItem CloseMenuItem;
-        private ToolStripMenuItem PauseMenuItem;
-        private ToolStripMenuItem IgnoreFullscreenMenuItem;
-
-        private readonly object ContextMenuLock = new object();
-
-        //create the NamedPipe server for our Service communication
-        private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
-
-        private System.Timers.Timer timer = new System.Timers.Timer(3000);
-        private System.Timers.Timer fullscreenTimer = new System.Timers.Timer(5000);
-
-        private bool lowOnly;
-        private bool sentFirstTime;
-        private bool miningPaused;
-        private bool monitorFullscreen;
-        private bool fullscreenDetected;
-        private bool connectedToService;
-        private int fullscreenDelay;
 
         public IdleMonContext()
         {
@@ -90,42 +87,32 @@ namespace IdleMon
             Utilities.Log("Named pipe server started.");
         }
 
-        private void OnFullscreenTimer(object sender, ElapsedEventArgs e)
+        private void CloseMenuItem_Click(object sender, EventArgs e)
         {
-            string fullscreenApp;
-            fullscreenApp = Utilities.IsForegroundFullScreen();
+            if (!connectedToService || MessageBox.Show("This will also stop the MiningService.\n\nAre you sure?",
+                    "Stop Mining?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation,
+                    MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            {
+                //Can make this more graceful, but MiningService will kill IdleMon if stopping is successful.
+                SendPipeMessage(PacketID.Stop, false);
 
-            if (fullscreenApp == string.Empty)
-            {
-                if (fullscreenDetected == true)
+                System.Timers.Timer myTimer = new System.Timers.Timer(3000);
+                myTimer.Elapsed += delegate
                 {
-                    fullscreenDelay = (60000 / (int)fullscreenTimer.Interval); //should always be a 1 minute interval, even if we change the fullscreenTimer
-                    fullscreenDetected = false;
-                    return;
-                }
+                    StopIdleMon();
+                };
+                myTimer.AutoReset = false;
+                myTimer.Start();
             }
-            else
-            {
-                fullscreenDetected = true;
-                Utilities.fullscreenAppName = fullscreenApp;
-                lock (ContextMenuLock)
-                {
-                    TrayIconContextMenu.SuspendLayout();
-                    this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + Utilities.fullscreenAppName;
-                    this.IgnoreFullscreenMenuItem.Visible = true;
-                    TrayIconContextMenu.ResumeLayout(true);
-                    TrayIcon.ContextMenuStrip = TrayIconContextMenu;
-                }
-            }
+        }
 
-            if (fullscreenDelay <= 0)
-            {
-                SendPipeMessage(PacketID.Fullscreen, fullscreenDetected, fullscreenApp);
-            }
-            else
-            {
-                fullscreenDelay--; //subtract 1 from the current delay before updating the service of fullscreen status
-            }
+        private void IgnoreFullscreenMenuItem_Click(object sender, EventArgs e)
+        {
+            SendPipeMessage(PacketID.IgnoreFullscreenApp, true, Utilities.fullscreenAppName);
+
+            Utilities.ignoredFullscreenApps.Add(Utilities.fullscreenAppName);
+
+            this.IgnoreFullscreenMenuItem.Visible = false;
         }
 
         private void InitializeComponent()
@@ -183,142 +170,32 @@ namespace IdleMon
                 TrayIcon.Visible = true;
             }
         }
-        
-        private void TrayIcon_MouseUp(object sender, MouseEventArgs e)
-        {
-            //TrayIconContextMenu.AutoClose = true;
-            //TrayIconContextMenu.Show(Cursor.Position);
-            //TrayIconContextMenu.Focus();
-        }
-
-        private void IgnoreFullscreenMenuItem_Click(object sender, EventArgs e)
-        {
-            SendPipeMessage(PacketID.IgnoreFullscreenApp, true, Utilities.fullscreenAppName);
-
-            Utilities.ignoredFullscreenApps.Add(Utilities.fullscreenAppName);
-
-            this.IgnoreFullscreenMenuItem.Visible = false;
-        }
 
         private void OnApplicationExit(object sender, EventArgs e)
         {
             StopIdleMon();
         }
 
-        private void StopIdleMon()
+        private void OnClientConnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
         {
-            //Cleanup so that the icon will be removed when the application is closed
-            if (TrayIcon != null) TrayIcon.Visible = false;
+            Utilities.Log(string.Format("idleMon Client {0} is now connected!", connection.Id));
+            timer.Start();
+            if (monitorFullscreen) fullscreenTimer.Start();
+            connectedToService = true;
 
-            //stop the PipeServer
-            server.Stop();
-
-            //and finally, exit IdleMon
-            System.Environment.Exit(0);
+            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
         }
 
-        private void TrayIcon_DoubleClick(object sender, EventArgs e)
+        private void OnClientDisconnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
         {
-            //Show the last BalloonTip message
-            TrayIcon.ShowBalloonTip(1000);
-        }
+            Utilities.Log(string.Format("idleMon Client {0} has disconnected.", connection.Id));
 
-        private void CloseMenuItem_Click(object sender, EventArgs e)
-        {
-            if (!connectedToService || MessageBox.Show("This will also stop the MiningService.\n\nAre you sure?",
-                    "Stop Mining?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation,
-                    MessageBoxDefaultButton.Button2) == DialogResult.Yes)
-            {
-                //Can make this more graceful, but MiningService will kill IdleMon if stopping is successful.
-                SendPipeMessage(PacketID.Stop, false);
-
-                System.Timers.Timer myTimer = new System.Timers.Timer(3000);
-                myTimer.Elapsed += delegate
-                {
-                    StopIdleMon();
-                };
-                myTimer.AutoReset = false;
-                myTimer.Start();
-            }
-        }
-
-        private void PauseMenuItem_Click(object sender, EventArgs e)
-        {
-            if (this.miningPaused)
-            {
-                SendPipeMessage(PacketID.Resume, false, Environment.UserName, PacketID.Pause);
-            }
-            else
-            {
-                SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
-            }
-        }
-
-        private void PauseMining(bool stateToSet, bool showTrayNotification = true)
-        {
-            this.miningPaused = (stateToSet);
-
-            if (TrayIcon == null)
-                return;
-
-            if (stateToSet)
-            {
-                PauseMenuItem.Text = "Resume mining";
-                if (showTrayNotification) ShowNotification("Pausing all mining.", ToolTipIcon.None, 1000);
-            }
-            else
-            {
-                PauseMenuItem.Text = "Pause mining";
-                if (showTrayNotification) ShowNotification("Mining has been resumed.", ToolTipIcon.None, 1000);
-            }
-        }
-
-        private void OnTimedEvent(object source, ElapsedEventArgs e)
-        {
-            bool _isIdle = false;
-
-            if (!lowOnly)
-            {
-                try
-                {
-                    _isIdle = Utilities.IsIdle();
-
-                    if (_isIdle == Utilities.lastState)
-                        return;
-                }
-                catch (Exception ex)
-                {
-                    Utilities.Log("OnTimedEvent: " + ex.Message);
-                    _isIdle = false;
-                    lowOnly = true;
-                }
-            }
-
-            /*
-            if (!miningPaused && fullscreenDetected)
-            {
-                SendPipeMessage(PacketID.Fullscreen, true, Environment.UserName);
-                sentFirstTime = false;
-            }
-            */
-
-            //If isIdle is the same as the lastState we sent, exit, unless we didn't send the first message yet.
-            if (_isIdle == Utilities.lastState && sentFirstTime)
-                return;
-
-            //Send updated Idle status.
-            SendPipeMessage(PacketID.Idle, _isIdle, Environment.UserName);
-
-            sentFirstTime = true;
-            Utilities.lastState = _isIdle;
-        }
-
-        private void OnError(Exception exception)
-        {
-            Utilities.Log("idlePipe Err: " + exception.Message);
-
-            timer.Stop();
+            miningPaused = false;
+            fullscreenDetected = false;
             connectedToService = false;
+
+            fullscreenTimer.Stop();
+            timer.Stop();
         }
 
         private void OnClientMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
@@ -380,7 +257,6 @@ namespace IdleMon
                 case ((int)PacketID.Message):
                     if (TrayIcon != null)
                     {
-
                         ShowNotification(message.data, ToolTipIcon.None, 1000);
                     }
                     break;
@@ -402,7 +278,7 @@ namespace IdleMon
                 case ((int)PacketID.IgnoreFullscreenApp):
 
                     Utilities.ignoredFullscreenApps.Add(message.data);
-                    Utilities.Log("Received IgnoreFullscreenApp: " + message.data);
+                    //Utilities.Log("Received IgnoreFullscreenApp: " + message.data);
                     break;
 
                 case ((int)PacketID.Notifications):
@@ -430,39 +306,121 @@ namespace IdleMon
             }
         }
 
-        private void ShowNotification(string message, ToolTipIcon icon, int time)
+        private void OnError(Exception exception)
         {
-            if (!Utilities.ShowDesktopNotifications)
+            Utilities.Log("idlePipe Err: " + exception.Message);
+
+            timer.Stop();
+            connectedToService = false;
+        }
+
+        private void OnFullscreenTimer(object sender, ElapsedEventArgs e)
+        {
+            string fullscreenApp;
+            fullscreenApp = Utilities.IsForegroundFullScreen();
+
+            if (fullscreenApp == string.Empty)
+            {
+                if (fullscreenDetected == true)
+                {
+                    fullscreenDelay = (60000 / (int)fullscreenTimer.Interval); //should always be a 1 minute interval, even if we change the fullscreenTimer
+                    fullscreenDetected = false;
+                    return;
+                }
+            }
+            else
+            {
+                fullscreenDetected = true;
+                Utilities.fullscreenAppName = fullscreenApp;
+                lock (ContextMenuLock)
+                {
+                    TrayIconContextMenu.SuspendLayout();
+                    this.IgnoreFullscreenMenuItem.Text = "Ignore App: " + Utilities.fullscreenAppName;
+                    this.IgnoreFullscreenMenuItem.Visible = true;
+                    TrayIconContextMenu.ResumeLayout(true);
+                    TrayIcon.ContextMenuStrip = TrayIconContextMenu;
+                }
+            }
+
+            if (fullscreenDelay <= 0)
+            {
+                SendPipeMessage(PacketID.Fullscreen, fullscreenDetected, fullscreenApp);
+            }
+            else
+            {
+                fullscreenDelay--; //subtract 1 from the current delay before updating the service of fullscreen status
+            }
+        }
+
+        private void OnTimedEvent(object source, ElapsedEventArgs e)
+        {
+            bool _isIdle = false;
+
+            if (!lowOnly)
+            {
+                try
+                {
+                    _isIdle = Utilities.IsIdle();
+
+                    if (_isIdle == Utilities.lastState)
+                        return;
+                }
+                catch (Exception ex)
+                {
+                    Utilities.Log("OnTimedEvent: " + ex.Message);
+                    _isIdle = false;
+                    lowOnly = true;
+                }
+            }
+
+            /*
+            if (!miningPaused && fullscreenDetected)
+            {
+                SendPipeMessage(PacketID.Fullscreen, true, Environment.UserName);
+                sentFirstTime = false;
+            }
+            */
+
+            //If isIdle is the same as the lastState we sent, exit, unless we didn't send the first message yet.
+            if (_isIdle == Utilities.lastState && sentFirstTime)
                 return;
+
+            //Send updated Idle status.
+            SendPipeMessage(PacketID.Idle, _isIdle, Environment.UserName);
+
+            sentFirstTime = true;
+            Utilities.lastState = _isIdle;
+        }
+
+        private void PauseMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.miningPaused)
+            {
+                SendPipeMessage(PacketID.Resume, false, Environment.UserName, PacketID.Pause);
+            }
+            else
+            {
+                SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
+            }
+        }
+
+        private void PauseMining(bool stateToSet, bool showTrayNotification = true)
+        {
+            this.miningPaused = (stateToSet);
 
             if (TrayIcon == null)
                 return;
 
-            TrayIcon.BalloonTipText = message;
-            TrayIcon.BalloonTipIcon = icon;
-            TrayIcon.ShowBalloonTip(time);
-        }
-
-        private void OnClientDisconnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
-        {
-            Utilities.Log(string.Format("idleMon Client {0} has disconnected.", connection.Id));
-
-            miningPaused = false;
-            fullscreenDetected = false;
-            connectedToService = false;
-
-            fullscreenTimer.Stop();
-            timer.Stop();
-        }
-
-        private void OnClientConnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
-        {
-            Utilities.Log(string.Format("idleMon Client {0} is now connected!", connection.Id));
-            timer.Start();
-            if (monitorFullscreen) fullscreenTimer.Start();
-            connectedToService = true;
-
-            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
+            if (stateToSet)
+            {
+                PauseMenuItem.Text = "Resume mining";
+                if (showTrayNotification) ShowNotification("Pausing all mining.", ToolTipIcon.None, 1000);
+            }
+            else
+            {
+                PauseMenuItem.Text = "Pause mining";
+                if (showTrayNotification) ShowNotification("Mining has been resumed.", ToolTipIcon.None, 1000);
+            }
         }
 
         private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", PacketID requestId = PacketID.None)
@@ -481,6 +439,44 @@ namespace IdleMon
             {
                 Utilities.Log("SendPipeMessage: " + ex.Message);
             }
+        }
+
+        private void ShowNotification(string message, ToolTipIcon icon, int time)
+        {
+            if (!Utilities.ShowDesktopNotifications)
+                return;
+
+            if (TrayIcon == null)
+                return;
+
+            TrayIcon.BalloonTipText = message;
+            TrayIcon.BalloonTipIcon = icon;
+            TrayIcon.ShowBalloonTip(time);
+        }
+
+        private void StopIdleMon()
+        {
+            //Cleanup so that the icon will be removed when the application is closed
+            if (TrayIcon != null) TrayIcon.Visible = false;
+
+            //stop the PipeServer
+            server.Stop();
+
+            //and finally, exit IdleMon
+            System.Environment.Exit(0);
+        }
+
+        private void TrayIcon_DoubleClick(object sender, EventArgs e)
+        {
+            //Show the last BalloonTip message
+            TrayIcon.ShowBalloonTip(1000);
+        }
+
+        private void TrayIcon_MouseUp(object sender, MouseEventArgs e)
+        {
+            //TrayIconContextMenu.AutoClose = true;
+            //TrayIconContextMenu.Show(Cursor.Position);
+            //TrayIconContextMenu.Focus();
         }
     }
 }
