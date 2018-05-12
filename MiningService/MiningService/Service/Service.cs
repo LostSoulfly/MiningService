@@ -224,13 +224,28 @@ namespace MiningService
 
                     if (Config.isUserLoggedIn)
                     {
-                        client.PushMessage(new IdleMessage
+                        if (!Config.isMiningPaused)
                         {
-                            packetId = (int)PacketID.Message,
-                            isIdle = false,
-                            requestId = (int)PacketID.None,
-                            data = "You have been detected as " + (message.isIdle ? "idle." : "active.")
-                        });
+                            client.PushMessage(new IdleMessage
+                            {
+                                packetId = (int)PacketID.Message,
+                                isIdle = false,
+                                requestId = (int)PacketID.None,
+                                data = "You have been detected as " + (message.isIdle ? "idle." : "active.")
+                            });
+                        } else
+                        {
+                            if (!message.isIdle)
+                            {
+                                client.PushMessage(new IdleMessage
+                                {
+                                    packetId = (int)PacketID.Message,
+                                    isIdle = false,
+                                    requestId = (int)PacketID.None,
+                                    data = "You have been detected as active but mining is paused!"
+                                });
+                            }
+                        }
 
                         Config.cpuUsageQueue = new Queue<int>();
 
@@ -681,7 +696,7 @@ namespace MiningService
 
                 bool didStartMiners = false;
 
-                if (Config.settings.mineWithCpu)
+                if (Config.settings.mineWithCpu && !Config.isMiningPaused)
                 {
                     if (!Utilities.AreMinersRunning(Config.settings.cpuMiners, Config.isUserIdle))
                     {
@@ -692,7 +707,7 @@ namespace MiningService
                     }
                 }
 
-                if (Config.settings.mineWithGpu)
+                if (Config.settings.mineWithGpu && !Config.isMiningPaused)
                 {
                     if (!Utilities.AreMinersRunning(Config.settings.gpuMiners, Config.isUserIdle))
                     {

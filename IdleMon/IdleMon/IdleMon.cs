@@ -294,7 +294,7 @@ namespace IdleMon
                         PauseMining(stateToSet: true, showTrayNotification: false);
                         if (TrayIcon != null)
                         {
-                            ShowNotification("Connected to MiningService! Mining is currently Paused.", ToolTipIcon.None, 1000);
+                            ShowNotification("Mining is currently Paused.", ToolTipIcon.None, 1000);
                         }
                     }
 
@@ -414,7 +414,7 @@ namespace IdleMon
             if (stateToSet)
             {
                 PauseMenuItem.Text = "Resume mining";
-                if (showTrayNotification) ShowNotification("Pausing all mining.", ToolTipIcon.None, 1000);
+                if (showTrayNotification) ShowNotification("Mining has been paused.", ToolTipIcon.None, 1000);
             }
             else
             {
