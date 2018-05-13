@@ -301,7 +301,7 @@ namespace MiningService
 
                     lock (Config.timeLock)
                     {
-                        if (message.isIdle && Config.fullscreenDetected != true)
+                        if (message.isIdle && Config.fullscreenDetected != true && !Config.isMiningPaused)
                         {
                             Utilities.Log("idleMon detected Fullscreen program: " + message.data);
 
