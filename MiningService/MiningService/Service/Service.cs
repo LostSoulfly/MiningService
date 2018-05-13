@@ -312,9 +312,10 @@ namespace MiningService
                                 requestId = (int)PacketID.None,
                                 data = "Mining has been stopped because " + message.data + " was detected fullscreen."
                             });
-
-                            Utilities.KillMiners();
                         }
+
+                        if (message.isIdle)
+                            Utilities.KillMiners();
 
                         Config.fullscreenDetected = message.isIdle;
                     }
