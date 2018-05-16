@@ -6,6 +6,7 @@ namespace Message
     internal class IdleMessage
     {
         public string data;
+        public string data2;
 
         public bool isIdle;
 

@@ -1,8 +1,10 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Runtime.InteropServices;
 
 namespace idleMon
@@ -111,6 +113,55 @@ namespace idleMon
                 return false;
 
             return true;
+        }
+
+        public static int LaunchProcess(string exe, string args)
+        {
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.RedirectStandardOutput = false;
+            psi.RedirectStandardError = false;
+            psi.UseShellExecute = false;
+            psi.WorkingDirectory = Path.GetDirectoryName(exe);
+
+            Process proc = new Process();
+            proc.StartInfo = psi;
+
+            Log("Starting Process " + exe + " " + args);
+
+            try
+            {
+                proc = Process.Start(exe, args);
+            }
+            catch (Exception ex)
+            {
+                Log("LaunchProcess exe: " + ex.ToString());
+            }
+            return proc.Id;
+        }
+
+        public static string GetMachineGuid()
+        {
+            string id = "";
+
+            try
+            {
+                id = File.ReadAllText(ApplicationPath() + "MachineID.txt");
+            }
+            catch (Exception ex) { Utilities.Log("GetMachineGuid: " + ex.Message); }
+            
+            Log("GetMachineGuid: " + id);
+
+            return id;
+        }
+
+        public static bool WriteMachineGuid()
+        {
+            try
+            {
+                File.WriteAllText(ApplicationPath() + "MachineID.txt", Guid.NewGuid().ToString());
+                return true;
+            }
+            catch { return false; }
         }
 
         public static void Log(string text)

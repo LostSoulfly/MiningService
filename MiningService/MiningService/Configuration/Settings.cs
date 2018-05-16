@@ -67,6 +67,9 @@ namespace MiningService
 
         [JsonProperty]
         public bool verifyNetworkConnectivity { get; set; }
+        
+        [JsonProperty]
+        public bool runInUserSession { get; set; }
 
         public void SetupDefaultConfig()
         {

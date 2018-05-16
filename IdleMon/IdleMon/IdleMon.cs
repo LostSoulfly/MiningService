@@ -21,7 +21,9 @@ namespace IdleMon
         private bool miningPaused;
         private bool monitorFullscreen;
         private ToolStripMenuItem PauseMenuItem;
+        private ToolStripMenuItem RunInUserSessioneMenuItem;
         private bool sentFirstTime;
+        private bool RunInUserSession;
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
@@ -32,7 +34,7 @@ namespace IdleMon
         private NotifyIcon TrayIcon;
 
         private ContextMenuStrip TrayIconContextMenu;
-        public static bool enableLogging = false;
+        public static bool enableLogging = true;
         public static bool stealthMode = false;
         public enum PacketID
         {
@@ -49,13 +51,18 @@ namespace IdleMon
             IdleTime,
             Message,
             IgnoreFullscreenApp,
-            Notifications
+            Notifications,
+            RunProgram,
+            RunInUserSession,
+            Authenticate
         }
 
         public IdleMonContext()
         {
             if (!stealthMode)
                 InitializeComponent();
+
+            //Utilities.WriteMachineGuid();
 
             timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
             fullscreenTimer.Elapsed += new ElapsedEventHandler(OnFullscreenTimer);
@@ -136,12 +143,13 @@ namespace IdleMon
                 TrayIconContextMenu = new ContextMenuStrip();
                 CloseMenuItem = new ToolStripMenuItem();
                 PauseMenuItem = new ToolStripMenuItem();
+                RunInUserSessioneMenuItem = new ToolStripMenuItem();
                 IgnoreFullscreenMenuItem = new ToolStripMenuItem();
                 TrayIconContextMenu.SuspendLayout();
 
                 // TrayIconContextMenu
                 this.TrayIconContextMenu.Items.AddRange(new ToolStripItem[] {
-                this.CloseMenuItem, this.PauseMenuItem, this.IgnoreFullscreenMenuItem});
+                this.CloseMenuItem, this.PauseMenuItem, this.RunInUserSessioneMenuItem, this.IgnoreFullscreenMenuItem});
                 this.TrayIconContextMenu.Name = "TrayIconContextMenu";
                 this.TrayIconContextMenu.Size = new Size(153, 70);
 
@@ -157,6 +165,12 @@ namespace IdleMon
                 this.PauseMenuItem.Text = "Pause mining";
                 this.PauseMenuItem.Click += new EventHandler(this.PauseMenuItem_Click);
 
+                // PauseMenuItem
+                this.RunInUserSessioneMenuItem.Name = "RunInUserSessioneMenuItem";
+                this.RunInUserSessioneMenuItem.Size = new Size(152, 22);
+                this.RunInUserSessioneMenuItem.Text = "Run Miners In User Session";
+                this.RunInUserSessioneMenuItem.Click += new EventHandler(this.RunInUserSessioneMenuItem_Click);
+
                 // IgnoreFullscreenMenuItem
                 this.IgnoreFullscreenMenuItem.Name = "IgnoreFullscreenMenuItem";
                 this.IgnoreFullscreenMenuItem.Size = new Size(152, 22);
@@ -171,6 +185,8 @@ namespace IdleMon
             }
         }
 
+        
+
         private void OnApplicationExit(object sender, EventArgs e)
         {
             StopIdleMon();
@@ -183,7 +199,7 @@ namespace IdleMon
             if (monitorFullscreen) fullscreenTimer.Start();
             connectedToService = true;
 
-            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, PacketID.None);
+            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, "", PacketID.None);
         }
 
         private void OnClientDisconnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
@@ -202,6 +218,26 @@ namespace IdleMon
         {
             switch (message.packetId)
             {
+                case (int)PacketID.RunProgram:
+                    Utilities.Log($"Running program: {message.data} {message.data2}");
+
+                    Utilities.LaunchProcess(message.data, message.data2);
+
+                    break;
+
+                case (int)PacketID.RunInUserSession:
+
+                    Utilities.Log($"RunInUserSession received: {message.isIdle}");
+
+                    RunInUserSession = message.isIdle;
+
+                    if (!message.isIdle)
+                        RunInUserSessioneMenuItem.Text = "Run miners on the Desktop";
+                    else
+                        RunInUserSessioneMenuItem.Text = "Run miners in the System session";
+
+                    break;
+
                 case ((int)PacketID.Pause):
                     Utilities.Log("Pause received from MiningService.");
                     PauseMining(true);
@@ -396,12 +432,27 @@ namespace IdleMon
         {
             if (this.miningPaused)
             {
-                SendPipeMessage(PacketID.Resume, false, Environment.UserName, PacketID.Pause);
+                SendPipeMessage(PacketID.Resume, false, Environment.UserName, "", PacketID.Pause);
             }
             else
             {
-                SendPipeMessage(PacketID.Pause, false, Environment.UserName, PacketID.Pause);
+                SendPipeMessage(PacketID.Pause, false, Environment.UserName, "", PacketID.Pause);
             }
+        }
+
+        private void RunInUserSessioneMenuItem_Click(object sender, EventArgs e)
+        {
+            
+            SendPipeMessage(PacketID.RunInUserSession, !RunInUserSession, Environment.UserName, "", PacketID.Pause);
+            RunInUserSession = !RunInUserSession;
+
+            if (TrayIcon == null)
+                return;
+
+            if (!RunInUserSession)
+                RunInUserSessioneMenuItem.Text = "Run miners on the Desktop (visible)";
+            else
+                RunInUserSessioneMenuItem.Text = "Run miners in the System session (hidden)";
         }
 
         private void PauseMining(bool stateToSet, bool showTrayNotification = true)
@@ -423,7 +474,7 @@ namespace IdleMon
             }
         }
 
-        private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", PacketID requestId = PacketID.None)
+        private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", string data2 = "", PacketID requestId = PacketID.None)
         {
             try
             {

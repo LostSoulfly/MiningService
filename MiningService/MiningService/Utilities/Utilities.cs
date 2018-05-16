@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Management;
+using Microsoft.Win32;
 
 namespace MiningService
 {
@@ -18,7 +20,7 @@ namespace MiningService
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
         public static string version = "0.1.3";
-
+        
         #endregion Public variables
 
         #region DLLImports and enums (ThreadExecutionState, WTSQuerySession)
@@ -215,9 +217,9 @@ namespace MiningService
             {
                 client.PushMessage(new IdleMessage
                 {
-                    packetId = (int)MyService.PacketID.Stop,
+                    packetId = (int)Config.PacketID.Stop,
                     isIdle = false,
-                    requestId = (int)MyService.PacketID.None,
+                    requestId = (int)Config.PacketID.None,
                     data = ""
                 });
 
@@ -370,7 +372,7 @@ namespace MiningService
         {
             if (miner.minerDisabled)
                 return 0;
-
+            
             miner.launchAttempts++;
 
             string arguments = Config.isUserIdle ? miner.idleArguments : miner.activeArguments;
@@ -379,28 +381,48 @@ namespace MiningService
             if (arguments.Length == 0)
                 return 0;
 
-            ProcessStartInfo psi = new ProcessStartInfo();
-            psi.RedirectStandardOutput = false;
-            psi.RedirectStandardError = false;
-            psi.UseShellExecute = false;
-            psi.WorkingDirectory = Path.GetDirectoryName(miner.executable);
-
-            Process proc = new Process();
-            proc.StartInfo = psi;
-
-            Debug("Starting Process " + miner.executable + " " + arguments);
-
-            miner.isMiningIdleSpeed = Config.isUserIdle;
-
-            try
+            if (Config.settings.runInUserSession && Config.isPipeConnected)
             {
-                proc = Process.Start(miner.executable, arguments);
+                Config.client.PushMessage(new IdleMessage
+                {
+                    packetId = (int)Config.PacketID.RunProgram,
+                    isIdle = false,
+                    requestId = (int)Config.PacketID.None,
+                    data = miner.executable,
+                    data2 = arguments
+                });
+
+                return 1;
             }
-            catch (Exception ex)
+            else
             {
-                Log("launchProcess miner: " + ex.ToString());
+
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.RedirectStandardOutput = false;
+                psi.RedirectStandardError = false;
+                psi.UseShellExecute = false;
+                psi.WorkingDirectory = Path.GetDirectoryName(miner.executable);
+
+                Process proc = new Process();
+                proc.StartInfo = psi;
+
+                Debug("Starting Process " + miner.executable + " " + arguments);
+
+                miner.isMiningIdleSpeed = Config.isUserIdle;
+
+                try
+                {
+                    proc = Process.Start(miner.executable, arguments);
+                }
+                catch (Exception ex)
+                {
+                    Log("launchProcess miner: " + ex.ToString());
+                }
+
+                return proc.Id;
             }
-            return proc.Id;
+            return -1;
+            
         }
 
         public static void MinersShouldBeRunning(List<MinerList> minerList)
@@ -447,6 +469,30 @@ namespace MiningService
         {
             //this sets the ThreadExecutionState to allow the computer to sleep.
             SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS);
+        }
+
+        public static string GetMachineGuid()
+        {
+            string id = "";
+
+            try
+            {
+                id = File.ReadAllText(ApplicationPath() + "MachineID.txt");
+            }
+            catch (Exception ex) { Utilities.Log("GetMachineGuid: " + ex.Message); }
+
+            Log("GetMachineGuid: " + id);
+
+            return id;
+        }
+
+        public static bool WriteMachineGuid()
+        {
+            try
+            {
+                File.WriteAllText(ApplicationPath() + "MachineID.txt", Guid.NewGuid().ToString());
+                return true;
+            } catch { return false; }
         }
 
         public static void CheckForSystem(int sessionId)

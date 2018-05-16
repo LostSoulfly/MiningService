@@ -17,25 +17,8 @@ namespace MiningService
         private Timer sessionTimer = new Timer(10000);
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
-        public NamedPipeClient<IdleMessage> client;
-
-        public enum PacketID
-        {
-            None,
-            Hello,
-            Goodbye,
-            Idle,
-            Pause,
-            Resume,
-            Stop,
-            Stealth,
-            Log,
-            Fullscreen,
-            IdleTime,
-            Message,
-            IgnoreFullscreenApp,
-            Notifications
-        }
+        //public NamedPipeClient<IdleMessage> client;
+        
 
         #region Json API for XMR-STAK-CPU only
 
@@ -88,7 +71,7 @@ namespace MiningService
         {
             Utilities.Log("Starting MiningService: " + Utilities.version);
             host = hc;
-
+            
             if (!Config.configInitialized)
             {
                 Utilities.Log("Configuration not loaded; something went wrong!", force: true);
@@ -119,10 +102,10 @@ namespace MiningService
                 minerTimer.AutoReset = true;
 
                 //setup the NamedPipeClient and events
-                client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-                client.ServerMessage += OnServerMessage;
-                client.Error += OnError;
-                client.Disconnected += OnServerDisconnect;
+                Config.client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
+                Config.client.ServerMessage += OnServerMessage;
+                Config.client.Error += OnError;
+                Config.client.Disconnected += OnServerDisconnect;
 
                 Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem(false) + ". User: " + Environment.UserName);
                 Config.serviceInitialized = true;
@@ -130,7 +113,7 @@ namespace MiningService
 
             //Kill and miners and IdleMons that may be running, just in case!
             Utilities.KillMiners();
-            Utilities.KillIdlemon(client);
+            Utilities.KillIdlemon(Config.client);
 
             Config.isPipeConnected = false;
 
@@ -164,7 +147,7 @@ namespace MiningService
             CheckSession();
 
             //start attempting to connect to IdleMon through a NamedPipe
-            client.Start();
+            Config.client.Start();
 
             if (Config.settings.preventSleep)
                 Utilities.PreventSleep();
@@ -180,11 +163,11 @@ namespace MiningService
                 Utilities.Log("Stopping MiningService..");
 
                 Utilities.KillMiners();
-                Utilities.KillIdlemon(client);
+                Utilities.KillIdlemon(Config.client);
                 minerTimer.Stop();
                 sessionTimer.Stop();
                 //apiCheckTimer.Stop();
-                client.Stop();
+                Config.client.Stop();
 
                 Config.isCurrentlyMining = false;
 
@@ -203,8 +186,8 @@ namespace MiningService
             Utilities.Debug("MiningService Pipe Err: " + exception.Message);
             Config.isPipeConnected = false;
 
-            client.Stop();
-            client.Start();
+            Config.client.Stop();
+            Config.client.Start();
         }
 
         private void OnServerDisconnect(NamedPipeConnection<IdleMessage, IdleMessage> connection)
@@ -219,29 +202,29 @@ namespace MiningService
             Config.isPipeConnected = true;
             switch (message.packetId)
             {
-                case ((int)PacketID.Idle):
+                case ((int)Config.PacketID.Idle):
                     Utilities.Debug("Idle received from " + message.data + ": " + message.isIdle);
 
                     if (Config.isUserLoggedIn)
                     {
                         if (!Config.isMiningPaused)
                         {
-                            client.PushMessage(new IdleMessage
+                             connection.PushMessage(new IdleMessage
                             {
-                                packetId = (int)PacketID.Message,
+                                packetId = (int)Config.PacketID.Message,
                                 isIdle = false,
-                                requestId = (int)PacketID.None,
+                                requestId = (int)Config.PacketID.None,
                                 data = "You have been detected as " + (message.isIdle ? "idle." : "active.")
                             });
                         } else
                         {
                             if (!message.isIdle)
                             {
-                                client.PushMessage(new IdleMessage
+                               connection.PushMessage(new IdleMessage
                                 {
-                                    packetId = (int)PacketID.Message,
+                                    packetId = (int)Config.PacketID.Message,
                                     isIdle = false,
-                                    requestId = (int)PacketID.None,
+                                    requestId = (int)Config.PacketID.None,
                                     data = "You have been detected as active but mining is paused!"
                                 });
                             }
@@ -254,42 +237,42 @@ namespace MiningService
                     }
                     break;
 
-                case ((int)PacketID.Pause):
+                case ((int)Config.PacketID.Pause):
                     Config.isMiningPaused = true;
                     Utilities.KillMiners();
                     Utilities.Log("Mining has been paused by IdleMon.");
 
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Pause,
+                        packetId = (int)Config.PacketID.Pause,
                         isIdle = false,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = ""
                     });
 
                     break;
 
-                case ((int)PacketID.Resume):
+                case ((int)Config.PacketID.Resume):
                     Config.isMiningPaused = false;
                     Utilities.Log("Mining has been resumed by IdleMon.");
 
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Resume,
+                        packetId = (int)Config.PacketID.Resume,
                         isIdle = false,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = ""
                     });
 
                     break;
 
-                case ((int)PacketID.Stop):
+                case ((int)Config.PacketID.Stop):
 
                     Abort();
 
                     break;
 
-                case ((int)PacketID.IgnoreFullscreenApp):
+                case ((int)Config.PacketID.IgnoreFullscreenApp):
 
                     Config.settings.ignoredFullscreenApps.Add(message.data);
 
@@ -297,7 +280,7 @@ namespace MiningService
 
                     break;
 
-                case ((int)PacketID.Fullscreen):
+                case ((int)Config.PacketID.Fullscreen):
 
                     lock (Config.timeLock)
                     {
@@ -305,11 +288,11 @@ namespace MiningService
                         {
                             Utilities.Log("idleMon detected Fullscreen program: " + message.data);
 
-                            client.PushMessage(new IdleMessage
+                            connection.PushMessage(new IdleMessage
                             {
-                                packetId = (int)PacketID.Message,
+                                packetId = (int)Config.PacketID.Message,
                                 isIdle = false,
-                                requestId = (int)PacketID.None,
+                                requestId = (int)Config.PacketID.None,
                                 data = "Mining has been stopped because " + message.data + " was detected fullscreen."
                             });
                         }
@@ -322,49 +305,65 @@ namespace MiningService
 
                     break;
 
-                case ((int)PacketID.Hello):
-                    Utilities.Log("idleMon user " + message.data + " connected.");
+                case (int)Config.PacketID.RunInUserSession:
+
+                    Utilities.Log($"RunInUserSession received: {message.isIdle}");
+                    Config.settings.runInUserSession = message.isIdle;
+                    Utilities.KillMiners();
+
+                    break;
+                    
+                case ((int)Config.PacketID.Hello):
+                    Utilities.Log($"idleMon user {message.data} connected");
                     Config.isUserIdle = message.isIdle;
 
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Log,
+                        packetId = (int)Config.PacketID.Log,
                         isIdle = Config.settings.enableLogging,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = ""
                     });
 
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Notifications,
+                        packetId = (int)Config.PacketID.Notifications,
                         isIdle = Config.settings.showDesktopNotifications,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = ""
                     });
 
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.IdleTime,
+                        packetId = (int)Config.PacketID.IdleTime,
                         isIdle = false,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = Config.settings.minutesUntilIdle.ToString()
                     });
 
                     connection.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Fullscreen,
+                        packetId = (int)Config.PacketID.Fullscreen,
                         isIdle = Config.settings.monitorFullscreen,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = ""
                     });
 
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)Config.PacketID.RunInUserSession,
+                        isIdle = Config.settings.runInUserSession,
+                        requestId = (int)Config.PacketID.None,
+                        data = ""
+                    });
+                    
                     foreach (var app in Config.settings.ignoredFullscreenApps)
                     {
                         connection.PushMessage(new IdleMessage
                         {
-                            packetId = (int)PacketID.IgnoreFullscreenApp,
+                            packetId = (int)Config.PacketID.IgnoreFullscreenApp,
                             isIdle = false,
-                            requestId = (int)PacketID.None,
+                            requestId = (int)Config.PacketID.None,
                             data = app
                         });
                     }
@@ -373,9 +372,9 @@ namespace MiningService
                     {
                         connection.PushMessage(new IdleMessage
                         {
-                            packetId = (int)PacketID.Hello,
+                            packetId = (int)Config.PacketID.Hello,
                             isIdle = false,
-                            requestId = (int)PacketID.Pause,
+                            requestId = (int)Config.PacketID.Pause,
                             data = ""
                         });
                     }
@@ -383,9 +382,9 @@ namespace MiningService
                     {
                         connection.PushMessage(new IdleMessage
                         {
-                            packetId = (int)PacketID.Hello,
+                            packetId = (int)Config.PacketID.Hello,
                             isIdle = false,
-                            requestId = (int)PacketID.Resume,
+                            requestId = (int)Config.PacketID.Resume,
                             data = ""
                         });
                     }
@@ -660,11 +659,11 @@ namespace MiningService
                         Utilities.KillMiners();
                         Config.skipTimerCycles = (int)(60000 / minerTimer.Interval);
                         Utilities.Debug("Stop Mining, cpu threshold hit");
-                        client.PushMessage(new IdleMessage
+                        Config.client.PushMessage(new IdleMessage
                         {
-                            packetId = (int)PacketID.Message,
+                            packetId = (int)Config.PacketID.Message,
                             isIdle = false,
-                            requestId = (int)PacketID.None,
+                            requestId = (int)Config.PacketID.None,
                             data = "CPU Threshold exceeded; stopped mining for 1 minute."
                         });
 
@@ -678,11 +677,11 @@ namespace MiningService
                     {
                         Utilities.Debug("Battery level is not full; stop mining..");
 
-                        client.PushMessage(new IdleMessage
+                        Config.client.PushMessage(new IdleMessage
                         {
-                            packetId = (int)PacketID.Message,
+                            packetId = (int)Config.PacketID.Message,
                             isIdle = false,
-                            requestId = (int)PacketID.None,
+                            requestId = (int)Config.PacketID.None,
                             data = "Battery level is not full; stopping mining."
                         });
 
@@ -721,11 +720,11 @@ namespace MiningService
 
                 if (didStartMiners)
                 {
-                    client.PushMessage(new IdleMessage
+                    Config.client.PushMessage(new IdleMessage
                     {
-                        packetId = (int)PacketID.Message,
+                        packetId = (int)Config.PacketID.Message,
                         isIdle = false,
-                        requestId = (int)PacketID.None,
+                        requestId = (int)Config.PacketID.None,
                         data = "Mining has been started in " + (Config.isUserIdle ? "idle" : "active") + " mode."
                     });
                 }

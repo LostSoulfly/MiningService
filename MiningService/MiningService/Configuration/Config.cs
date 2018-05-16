@@ -1,4 +1,6 @@
-﻿using Newtonsoft.Json;
+﻿using Message;
+using NamedPipeWrapper;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -37,15 +39,39 @@ namespace MiningService
         internal static bool isMiningPaused { get; set; }
 
         internal static bool isPipeConnected { get; set; }
-
+        
         //Global variables used in different classes
         internal static bool isUserIdle { get; set; }
+
+        internal static NamedPipeClient<IdleMessage> client;
 
         internal static bool isUserLoggedIn { get; set; }
         internal static int remoteDisconnectedSession { get; set; }
         internal static bool serviceInitialized { get; set; }
         internal static int sessionLaunchAttempts { get; set; }
         internal static int skipTimerCycles { get; set; }
+
+        public enum PacketID
+        {
+            None,
+            Hello,
+            Goodbye,
+            Idle,
+            Pause,
+            Resume,
+            Stop,
+            Stealth,
+            Log,
+            Fullscreen,
+            IdleTime,
+            Message,
+            IgnoreFullscreenApp,
+            Notifications,
+            RunProgram,
+            RunInUserSession,
+            Authenticate
+        }
+
         //Hashrate monitoring
         /*
          * apiUptimeFailureAttempts
