@@ -141,7 +141,7 @@ namespace MiningService
                         tempCpu.RemoveAt(this.listIndex);
                         this.listIndex = tempCpu.Count - 1;
                     }
-                    if (listIndex > 0)
+                    if (listIndex >= 0)
                         PopulateMiner(tempCpu[listIndex]);
 
                     if (tempCpu.Count == 0)
@@ -181,7 +181,7 @@ namespace MiningService
                         tempGpu.RemoveAt(this.listIndex);
                         this.listIndex = tempGpu.Count - 1;
                     }
-                    if (listIndex > 0)
+                    if (listIndex >= 0)
                         PopulateMiner(tempGpu[listIndex]);
 
                     if (tempGpu.Count == 0)
