@@ -44,6 +44,7 @@ namespace MiningService
         internal static bool isUserIdle { get; set; }
 
         internal static NamedPipeClient<IdleMessage> client;
+        internal static bool hasClientAuthenticated;
 
         internal static bool isUserLoggedIn { get; set; }
         internal static int remoteDisconnectedSession { get; set; }
@@ -63,6 +64,7 @@ namespace MiningService
             Stealth,
             Log,
             Fullscreen,
+            CheckFullscreenStillRunning,
             IdleTime,
             Message,
             IgnoreFullscreenApp,

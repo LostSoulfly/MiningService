@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Management;
 using Microsoft.Win32;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MiningService
 {
@@ -471,7 +473,7 @@ namespace MiningService
             SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS);
         }
 
-        public static string GetMachineGuid()
+        public static string ReadMachineGuid()
         {
             string id = "";
 
@@ -479,20 +481,61 @@ namespace MiningService
             {
                 id = File.ReadAllText(ApplicationPath() + "MachineID.txt");
             }
-            catch (Exception ex) { Utilities.Log("GetMachineGuid: " + ex.Message); }
+            catch (Exception ex) { Utilities.Log("ReadMachineGuid: " + ex.Message); }
 
-            Log("GetMachineGuid: " + id);
+            //Log("ReadMachineGuid: " + id);
 
             return id;
         }
 
-        public static bool WriteMachineGuid()
+        public static bool VerifyAuthString(string md5Hash, string userName)
         {
-            try
+            bool success = GenerateAuthString(userName) == md5Hash;
+            Utilities.Log($"VerifyAuthString: {success} - {md5Hash}");
+
+            return success;
+        }
+
+        public static string GenerateAuthString(string userName)
+        {
+            // Since this uses pipes, and should be connected on the same system, using the current date as a sort of salt should
+            // work out fine. MD5 is fast enough that we could probably use the current system seconds as well, but it's a small chance to fail, so we leave that off.
+            string date = DateTime.Now.ToString(@"yyyy\-MM\-dd HH\:mm");
+
+            //Calculate the first auth string from GUID file:LSFMiningService:Current system date/time
+            string auth = $"{ReadMachineGuid()}:LSFMiningService:{date}";
+
+            //Calculate second auth string from first auth's MD5, plus machine name
+            string auth2 = $"{CalculateMD5(auth)}:{Environment.MachineName}";
+
+            //Calculate auth3 string from auth2's MD5, plus supplied username
+            string auth3 = $"{CalculateMD5(auth2)}:{userName}";
+
+            //Finally, calculate actual auth string with auth3's MD5
+            string finalAuth = CalculateMD5(auth3);
+
+            //Utilities.Log($"GenerateAuthString: Auth: {auth} \n Auth2: {auth2} \n Auth3: {auth3} \n finalAuth: {finalAuth}");
+
+            return finalAuth;
+
+        }
+
+        public static string CalculateMD5(string input)
+        {
+            MD5 md5 = System.Security.Cryptography.MD5.Create();
+
+            byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input);
+            byte[] hash = md5.ComputeHash(inputBytes);
+
+            StringBuilder sb = new StringBuilder();
+
+            for (int i = 0; i < hash.Length; i++)
             {
-                File.WriteAllText(ApplicationPath() + "MachineID.txt", Guid.NewGuid().ToString());
-                return true;
-            } catch { return false; }
+                sb.Append(hash[i].ToString("X2"));
+            }
+
+            //Utilities.Log($"CalculateMD5: {sb.ToString()}");
+            return sb.ToString();
         }
 
         public static void CheckForSystem(int sessionId)

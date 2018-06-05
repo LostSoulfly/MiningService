@@ -2,6 +2,7 @@
 using Message;
 using NamedPipeWrapper;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Timers;
 using System.Windows.Forms;
@@ -20,10 +21,12 @@ namespace IdleMon
         private bool lowOnly;
         private bool miningPaused;
         private bool monitorFullscreen;
+        private bool CheckFullscreenStillRunning;
         private ToolStripMenuItem PauseMenuItem;
         private ToolStripMenuItem RunInUserSessioneMenuItem;
         private bool sentFirstTime;
         private bool RunInUserSession;
+        private List<NamedPipeConnection<IdleMessage, IdleMessage>> authenticatedClients = new List<NamedPipeConnection<IdleMessage, IdleMessage>>();
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
@@ -34,7 +37,7 @@ namespace IdleMon
         private NotifyIcon TrayIcon;
 
         private ContextMenuStrip TrayIconContextMenu;
-        public static bool enableLogging = true;
+        public static bool enableLogging = false;
         public static bool stealthMode = false;
         public enum PacketID
         {
@@ -48,6 +51,7 @@ namespace IdleMon
             Stealth,
             Log,
             Fullscreen,
+            CheckFullscreenStillRunning,
             IdleTime,
             Message,
             IgnoreFullscreenApp,
@@ -62,7 +66,7 @@ namespace IdleMon
             if (!stealthMode)
                 InitializeComponent();
 
-            //Utilities.WriteMachineGuid();
+            Utilities.WriteMachineGuid();
 
             timer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
             fullscreenTimer.Elapsed += new ElapsedEventHandler(OnFullscreenTimer);
@@ -194,12 +198,19 @@ namespace IdleMon
 
         private void OnClientConnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
         {
-            Utilities.Log(string.Format("idleMon Client {0} is now connected!", connection.Id));
-            timer.Start();
-            if (monitorFullscreen) fullscreenTimer.Start();
-            connectedToService = true;
+            if (!connectedToService)
+            {
+                Utilities.Log(string.Format("idleMon Client {0} is now connected!", connection.Id));
 
-            SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, "", PacketID.None);
+                //On connection, we'll send a MD5 hash of the MachineGUID+UserName+Current system time
+                SendPipeMessage(PacketID.Authenticate, false, Utilities.GenerateAuthString(Environment.UserName), Environment.UserName, PacketID.Authenticate, connection);
+
+            }
+            else
+            {
+                Utilities.Log("New connection, but already connected to service?");
+                connection.Close();
+            }
         }
 
         private void OnClientDisconnected(NamedPipeConnection<IdleMessage, IdleMessage> connection)
@@ -210,14 +221,48 @@ namespace IdleMon
             fullscreenDetected = false;
             connectedToService = false;
 
+            try
+            {
+                authenticatedClients.Remove(connection);
+            }
+            catch { }
+
             fullscreenTimer.Stop();
             timer.Stop();
         }
 
         private void OnClientMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
         {
+
+            if (!authenticatedClients.Contains(connection) && message.packetId != (int)PacketID.Authenticate)
+            {
+                Utilities.Log($"{connection.Name}: has not authenticated, and sending non-auth first packet; closing pipe.");
+                connection.Close();
+            }
+
             switch (message.packetId)
             {
+                case (int)PacketID.Authenticate:
+
+                    if (Utilities.VerifyAuthString(message.data, message.data2))
+                    {
+                        Utilities.Log($"{connection.Name}: {message.data2} has authenticated successfully.");
+                        authenticatedClients.Add(connection);
+
+                        timer.Start();
+                        if (monitorFullscreen) fullscreenTimer.Start();
+                        connectedToService = true;
+                        
+                        SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, "", PacketID.None, connection);
+
+                    }
+                    else
+                    {
+                        Utilities.Log($"{connection.Name}: incorrect authentication packet; closing pipe.");
+                        connection.Close();
+                    }
+                    break;
+
                 case (int)PacketID.RunProgram:
                     Utilities.Log($"Running program: {message.data} {message.data2}");
 
@@ -311,6 +356,15 @@ namespace IdleMon
                     }
                     break;
 
+                case ((int)PacketID.CheckFullscreenStillRunning):
+                    if (message.isIdle)
+                    {
+                        CheckFullscreenStillRunning = message.isIdle;
+                        fullscreenTimer.Start();
+                        Utilities.Log("Received CheckFullscreenStillRunning: " + message.isIdle);
+                    }
+                    break;
+
                 case ((int)PacketID.IgnoreFullscreenApp):
 
                     Utilities.ignoredFullscreenApps.Add(message.data);
@@ -359,9 +413,19 @@ namespace IdleMon
             {
                 if (fullscreenDetected == true)
                 {
-                    fullscreenDelay = (60000 / (int)fullscreenTimer.Interval); //should always be a 1 minute interval, even if we change the fullscreenTimer
-                    fullscreenDetected = false;
-                    return;
+                    if (CheckFullscreenStillRunning &&
+                        Utilities.IsProcessRunning(Utilities.fullscreenAppName) &&
+                        !Utilities.ignoredFullscreenApps.Contains(Utilities.fullscreenAppName))
+                    {
+                        //Last app is still running
+                        Utilities.Log($"CheckFullscreenStillRunning {CheckFullscreenStillRunning}: {Utilities.fullscreenAppName}");
+                        return;
+                    } else
+                    {
+                        fullscreenDelay = (60000 / (int)fullscreenTimer.Interval); //should always be a 1 minute interval, even if we change the fullscreenTimer
+                        fullscreenDetected = false;
+                        return;
+                    }
                 }
             }
             else
@@ -474,17 +538,31 @@ namespace IdleMon
             }
         }
 
-        private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", string data2 = "", PacketID requestId = PacketID.None)
+        private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", string data2 = "", PacketID requestId = PacketID.None, NamedPipeConnection<IdleMessage, IdleMessage> connection = null)
         {
             try
             {
-                server.PushMessage(new IdleMessage
+                if (connection == null)
                 {
-                    packetId = (int)packetId,
-                    isIdle = isIdle,
-                    requestId = (int)requestId,
-                    data = data
-                });
+                    server.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)packetId,
+                        isIdle = isIdle,
+                        requestId = (int)requestId,
+                        data = data,
+                        data2 = data2
+                    });
+                } else
+                {
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)packetId,
+                        isIdle = isIdle,
+                        requestId = (int)requestId,
+                        data = data,
+                        data2 = data2
+                    });
+                }
             }
             catch (Exception ex)
             {

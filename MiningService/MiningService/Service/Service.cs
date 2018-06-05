@@ -185,6 +185,7 @@ namespace MiningService
         {
             Utilities.Debug("MiningService Pipe Err: " + exception.Message);
             Config.isPipeConnected = false;
+            Config.hasClientAuthenticated = false;
 
             Config.client.Stop();
             Config.client.Start();
@@ -194,14 +195,46 @@ namespace MiningService
         {
             Utilities.Log("MiningService Pipe disconnected");
             Config.isPipeConnected = false;
+            Config.hasClientAuthenticated = false;
         }
 
         private void OnServerMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
         {
             Config.sessionLaunchAttempts = 0;
             Config.isPipeConnected = true;
+
+            if (!Config.hasClientAuthenticated && message.packetId != (int)Config.PacketID.Authenticate)
+            {
+                Utilities.Log($"{connection.Name}: has not authenticated, and sending non-auth first packet; closing pipe: {message.packetId}");
+                connection.Close();
+            }
+
             switch (message.packetId)
             {
+                case ((int)Config.PacketID.Authenticate):
+
+                    if (Utilities.VerifyAuthString(message.data, message.data2))
+                    {
+                        Utilities.Log($"{message.data2} has authenticated successfully.");
+
+                        Config.hasClientAuthenticated = true;
+
+                        connection.PushMessage(new IdleMessage
+                        {
+                            packetId = (int)Config.PacketID.Authenticate,
+                            isIdle = false,
+                            requestId = (int)Config.PacketID.None,
+                            data = Utilities.GenerateAuthString("SYSTEM"),
+                            data2 = "SYSTEM"
+                        });
+                    } else
+                    {
+                        Utilities.Log($"{connection.Name}: incorrect authentication packet; closing pipe.");
+                        connection.Close();
+                    }
+
+                    break;
+
                 case ((int)Config.PacketID.Idle):
                     Utilities.Debug("Idle received from " + message.data + ": " + message.isIdle);
 
@@ -345,6 +378,15 @@ namespace MiningService
                     {
                         packetId = (int)Config.PacketID.Fullscreen,
                         isIdle = Config.settings.monitorFullscreen,
+                        requestId = (int)Config.PacketID.None,
+                        data = ""
+                    });
+
+                    //
+                    connection.PushMessage(new IdleMessage
+                    {
+                        packetId = (int)Config.PacketID.CheckFullscreenStillRunning,
+                        isIdle = Config.settings.checkIfFullscreenAppStillRunning,
                         requestId = (int)Config.PacketID.None,
                         data = ""
                     });
