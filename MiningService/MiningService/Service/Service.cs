@@ -18,7 +18,6 @@ namespace MiningService
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
         //public NamedPipeClient<IdleMessage> client;
-        
 
         #region Json API for XMR-STAK-CPU only
 
@@ -71,7 +70,7 @@ namespace MiningService
         {
             Utilities.Log("Starting MiningService: " + Utilities.version);
             host = hc;
-            
+
             if (!Config.configInitialized)
             {
                 Utilities.Log("Configuration not loaded; something went wrong!", force: true);
@@ -227,7 +226,8 @@ namespace MiningService
                             data = Utilities.GenerateAuthString("SYSTEM"),
                             data2 = "SYSTEM"
                         });
-                    } else
+                    }
+                    else
                     {
                         Utilities.Log($"{connection.Name}: incorrect authentication packet; closing pipe.");
                         connection.Close();
@@ -242,18 +242,19 @@ namespace MiningService
                     {
                         if (!Config.isMiningPaused)
                         {
-                             connection.PushMessage(new IdleMessage
+                            connection.PushMessage(new IdleMessage
                             {
                                 packetId = (int)Config.PacketID.Message,
                                 isIdle = false,
                                 requestId = (int)Config.PacketID.None,
                                 data = "You have been detected as " + (message.isIdle ? "idle." : "active.")
                             });
-                        } else
+                        }
+                        else
                         {
                             if (!message.isIdle)
                             {
-                               connection.PushMessage(new IdleMessage
+                                connection.PushMessage(new IdleMessage
                                 {
                                     packetId = (int)Config.PacketID.Message,
                                     isIdle = false,
@@ -345,7 +346,7 @@ namespace MiningService
                     Utilities.KillMiners();
 
                     break;
-                    
+
                 case ((int)Config.PacketID.Hello):
                     Utilities.Log($"idleMon user {message.data} connected");
                     Config.isUserIdle = message.isIdle;
@@ -398,7 +399,7 @@ namespace MiningService
                         requestId = (int)Config.PacketID.None,
                         data = ""
                     });
-                    
+
                     foreach (var app in Config.settings.ignoredFullscreenApps)
                     {
                         connection.PushMessage(new IdleMessage

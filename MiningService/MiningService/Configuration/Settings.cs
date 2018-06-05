@@ -60,6 +60,9 @@ namespace MiningService
         public bool preventSleep { get; set; }
 
         [JsonProperty]
+        public bool runInUserSession { get; set; }
+
+        [JsonProperty]
         public bool showDesktopNotifications { get; set; }
 
         [JsonProperty]
@@ -67,9 +70,6 @@ namespace MiningService
 
         [JsonProperty]
         public bool verifyNetworkConnectivity { get; set; }
-        
-        [JsonProperty]
-        public bool runInUserSession { get; set; }
 
         public void SetupDefaultConfig()
         {

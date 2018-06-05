@@ -12,6 +12,8 @@ namespace IdleMon
     internal class IdleMonContext : ApplicationContext
     {
         private readonly object ContextMenuLock = new object();
+        private List<NamedPipeConnection<IdleMessage, IdleMessage>> authenticatedClients = new List<NamedPipeConnection<IdleMessage, IdleMessage>>();
+        private bool CheckFullscreenStillRunning;
         private ToolStripMenuItem CloseMenuItem;
         private bool connectedToService;
         private int fullscreenDelay;
@@ -21,12 +23,10 @@ namespace IdleMon
         private bool lowOnly;
         private bool miningPaused;
         private bool monitorFullscreen;
-        private bool CheckFullscreenStillRunning;
         private ToolStripMenuItem PauseMenuItem;
+        private bool RunInUserSession;
         private ToolStripMenuItem RunInUserSessioneMenuItem;
         private bool sentFirstTime;
-        private bool RunInUserSession;
-        private List<NamedPipeConnection<IdleMessage, IdleMessage>> authenticatedClients = new List<NamedPipeConnection<IdleMessage, IdleMessage>>();
 
         //create the NamedPipe server for our Service communication
         private NamedPipeServer<IdleMessage> server = new NamedPipeServer<IdleMessage>(@"Global\MINERPIPE");
@@ -189,8 +189,6 @@ namespace IdleMon
             }
         }
 
-        
-
         private void OnApplicationExit(object sender, EventArgs e)
         {
             StopIdleMon();
@@ -204,7 +202,6 @@ namespace IdleMon
 
                 //On connection, we'll send a MD5 hash of the MachineGUID+UserName+Current system time
                 SendPipeMessage(PacketID.Authenticate, false, Utilities.GenerateAuthString(Environment.UserName), Environment.UserName, PacketID.Authenticate, connection);
-
             }
             else
             {
@@ -233,7 +230,6 @@ namespace IdleMon
 
         private void OnClientMessage(NamedPipeConnection<IdleMessage, IdleMessage> connection, IdleMessage message)
         {
-
             if (!authenticatedClients.Contains(connection) && message.packetId != (int)PacketID.Authenticate)
             {
                 Utilities.Log($"{connection.Name}: has not authenticated, and sending non-auth first packet; closing pipe.");
@@ -252,9 +248,8 @@ namespace IdleMon
                         timer.Start();
                         if (monitorFullscreen) fullscreenTimer.Start();
                         connectedToService = true;
-                        
-                        SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, "", PacketID.None, connection);
 
+                        SendPipeMessage(PacketID.Hello, Utilities.IsIdle(), Environment.UserName, "", PacketID.None, connection);
                     }
                     else
                     {
@@ -420,7 +415,8 @@ namespace IdleMon
                         //Last app is still running
                         Utilities.Log($"CheckFullscreenStillRunning {CheckFullscreenStillRunning}: {Utilities.fullscreenAppName}");
                         return;
-                    } else
+                    }
+                    else
                     {
                         fullscreenDelay = (60000 / (int)fullscreenTimer.Interval); //should always be a 1 minute interval, even if we change the fullscreenTimer
                         fullscreenDetected = false;
@@ -504,21 +500,6 @@ namespace IdleMon
             }
         }
 
-        private void RunInUserSessioneMenuItem_Click(object sender, EventArgs e)
-        {
-            
-            SendPipeMessage(PacketID.RunInUserSession, !RunInUserSession, Environment.UserName, "", PacketID.Pause);
-            RunInUserSession = !RunInUserSession;
-
-            if (TrayIcon == null)
-                return;
-
-            if (!RunInUserSession)
-                RunInUserSessioneMenuItem.Text = "Run miners on the Desktop (visible)";
-            else
-                RunInUserSessioneMenuItem.Text = "Run miners in the System session (hidden)";
-        }
-
         private void PauseMining(bool stateToSet, bool showTrayNotification = true)
         {
             this.miningPaused = (stateToSet);
@@ -538,6 +519,20 @@ namespace IdleMon
             }
         }
 
+        private void RunInUserSessioneMenuItem_Click(object sender, EventArgs e)
+        {
+            SendPipeMessage(PacketID.RunInUserSession, !RunInUserSession, Environment.UserName, "", PacketID.Pause);
+            RunInUserSession = !RunInUserSession;
+
+            if (TrayIcon == null)
+                return;
+
+            if (!RunInUserSession)
+                RunInUserSessioneMenuItem.Text = "Run miners on the Desktop (visible)";
+            else
+                RunInUserSessioneMenuItem.Text = "Run miners in the System session (hidden)";
+        }
+
         private void SendPipeMessage(PacketID packetId, bool isIdle = false, string data = "", string data2 = "", PacketID requestId = PacketID.None, NamedPipeConnection<IdleMessage, IdleMessage> connection = null)
         {
             try
@@ -552,7 +547,8 @@ namespace IdleMon
                         data = data,
                         data2 = data2
                     });
-                } else
+                }
+                else
                 {
                     connection.PushMessage(new IdleMessage
                     {

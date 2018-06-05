@@ -17,8 +17,10 @@ namespace MiningService
 
         internal static readonly object timeLock = new object();
 
+        internal static NamedPipeClient<IdleMessage> client;
         internal static Queue<int> cpuUsageQueue = new Queue<int>();
 
+        internal static bool hasClientAuthenticated;
         public static string idleMonExecutable = "IdleMon.exe";
 
         //Settings class instance for de/serialization
@@ -39,12 +41,9 @@ namespace MiningService
         internal static bool isMiningPaused { get; set; }
 
         internal static bool isPipeConnected { get; set; }
-        
+
         //Global variables used in different classes
         internal static bool isUserIdle { get; set; }
-
-        internal static NamedPipeClient<IdleMessage> client;
-        internal static bool hasClientAuthenticated;
 
         internal static bool isUserLoggedIn { get; set; }
         internal static int remoteDisconnectedSession { get; set; }

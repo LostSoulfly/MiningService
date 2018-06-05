@@ -6,11 +6,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
-using System.Management;
-using Microsoft.Win32;
 using System.Security.Cryptography;
 using System.Text;
+using System.Windows.Forms;
 
 namespace MiningService
 {
@@ -21,8 +19,8 @@ namespace MiningService
         private static bool isSystem;
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
-        public static string version = "0.1.3";
-        
+        public static string version = "0.2.0";
+
         #endregion Public variables
 
         #region DLLImports and enums (ThreadExecutionState, WTSQuerySession)
@@ -374,7 +372,7 @@ namespace MiningService
         {
             if (miner.minerDisabled)
                 return 0;
-            
+
             miner.launchAttempts++;
 
             string arguments = Config.isUserIdle ? miner.idleArguments : miner.activeArguments;
@@ -398,7 +396,6 @@ namespace MiningService
             }
             else
             {
-
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.RedirectStandardOutput = false;
                 psi.RedirectStandardError = false;
@@ -424,7 +421,6 @@ namespace MiningService
                 return proc.Id;
             }
             return -1;
-            
         }
 
         public static void MinersShouldBeRunning(List<MinerList> minerList)
@@ -473,53 +469,6 @@ namespace MiningService
             SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS);
         }
 
-        public static string ReadMachineGuid()
-        {
-            string id = "";
-
-            try
-            {
-                id = File.ReadAllText(ApplicationPath() + "MachineID.txt");
-            }
-            catch (Exception ex) { Utilities.Log("ReadMachineGuid: " + ex.Message); }
-
-            //Log("ReadMachineGuid: " + id);
-
-            return id;
-        }
-
-        public static bool VerifyAuthString(string md5Hash, string userName)
-        {
-            bool success = GenerateAuthString(userName) == md5Hash;
-            Utilities.Log($"VerifyAuthString: {success} - {md5Hash}");
-
-            return success;
-        }
-
-        public static string GenerateAuthString(string userName)
-        {
-            // Since this uses pipes, and should be connected on the same system, using the current date as a sort of salt should
-            // work out fine. MD5 is fast enough that we could probably use the current system seconds as well, but it's a small chance to fail, so we leave that off.
-            string date = DateTime.Now.ToString(@"yyyy\-MM\-dd HH\:mm");
-
-            //Calculate the first auth string from GUID file:LSFMiningService:Current system date/time
-            string auth = $"{ReadMachineGuid()}:LSFMiningService:{date}";
-
-            //Calculate second auth string from first auth's MD5, plus machine name
-            string auth2 = $"{CalculateMD5(auth)}:{Environment.MachineName}";
-
-            //Calculate auth3 string from auth2's MD5, plus supplied username
-            string auth3 = $"{CalculateMD5(auth2)}:{userName}";
-
-            //Finally, calculate actual auth string with auth3's MD5
-            string finalAuth = CalculateMD5(auth3);
-
-            //Utilities.Log($"GenerateAuthString: Auth: {auth} \n Auth2: {auth2} \n Auth3: {auth3} \n finalAuth: {finalAuth}");
-
-            return finalAuth;
-
-        }
-
         public static string CalculateMD5(string input)
         {
             MD5 md5 = System.Security.Cryptography.MD5.Create();
@@ -555,6 +504,31 @@ namespace MiningService
             {
                 Config.isUserLoggedIn = true;
             }
+        }
+
+        public static string GenerateAuthString(string userName)
+        {
+            // Since this uses pipes, and should be connected on the same system, using the current
+            // date as a sort of salt should work out fine. MD5 is fast enough that we could probably
+            // use the current system seconds as well, but it's a small chance to fail, so we leave
+            // that off.
+            string date = DateTime.Now.ToString(@"yyyy\-MM\-dd HH\:mm");
+
+            //Calculate the first auth string from GUID file:LSFMiningService:Current system date/time
+            string auth = $"{ReadMachineGuid()}:LSFMiningService:{date}";
+
+            //Calculate second auth string from first auth's MD5, plus machine name
+            string auth2 = $"{CalculateMD5(auth)}:{Environment.MachineName}";
+
+            //Calculate auth3 string from auth2's MD5, plus supplied username
+            string auth3 = $"{CalculateMD5(auth2)}:{userName}";
+
+            //Finally, calculate actual auth string with auth3's MD5
+            string finalAuth = CalculateMD5(auth3);
+
+            //Utilities.Log($"GenerateAuthString: Auth: {auth} \n Auth2: {auth2} \n Auth3: {auth3} \n finalAuth: {finalAuth}");
+
+            return finalAuth;
         }
 
         public static string GetUsernameBySessionId(int sessionId, bool prependDomain = false)
@@ -615,6 +589,29 @@ namespace MiningService
             SetThreadExecutionState(
               EXECUTION_STATE.ES_SYSTEM_REQUIRED |
               EXECUTION_STATE.ES_CONTINUOUS);
+        }
+
+        public static string ReadMachineGuid()
+        {
+            string id = "";
+
+            try
+            {
+                id = File.ReadAllText(ApplicationPath() + "MachineID.txt");
+            }
+            catch (Exception ex) { Utilities.Log("ReadMachineGuid: " + ex.Message); }
+
+            //Log("ReadMachineGuid: " + id);
+
+            return id;
+        }
+
+        public static bool VerifyAuthString(string md5Hash, string userName)
+        {
+            bool success = GenerateAuthString(userName) == md5Hash;
+            Utilities.Log($"VerifyAuthString: {success} - {md5Hash}");
+
+            return success;
         }
 
         #endregion System/OS Utils

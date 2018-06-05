@@ -6,108 +6,27 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
-using System.Timers;
-using MiningService;
 
 namespace MiningService
 {
     public partial class FormMain : Form
     {
         private bool changesMade;
-        private string settingsFileName = "MinerService.json";
-        private Settings settings = new Settings();
-        private List<TextBox> formTextBoxes = new List<TextBox>();
-        private List<Label> textBoxLabels = new List<Label>();
         private List<NumericUpDown> formNumericUpDown = new List<NumericUpDown>();
+        private List<TextBox> formTextBoxes = new List<TextBox>();
         private List<Label> numericUpDownLabels = new List<Label>();
+        private Settings settings = new Settings();
+        private string settingsFileName = "MinerService.json";
+        private List<Label> textBoxLabels = new List<Label>();
 
         public FormMain()
         {
             InitializeComponent();
         }
 
-        public void LoadSettings()
+        private void button1_Click(object sender, EventArgs e)
         {
-            settings = new Settings();
-            saveToolStripMenuItem.Enabled = true;
-
-            try
-            {
-                if (File.Exists(settingsFileName))
-                {
-                    //Try to read and deserialize the passed file path into the Settings object
-                    settings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(settingsFileName));
-                }
-                CreateFormObjects(settings);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("LoadSettings exception: " + ex.Message);
-            }
-
-            changesMade = false;
-        }
-
-        public void SaveSettings()
-        {
-            UpdateSettings(settings);
-
-            try
-            {
-                File.WriteAllText(settingsFileName, JsonConvert.SerializeObject(settings, Formatting.Indented));
-                changesMade = false;
-                MessageBox.Show("Settings were saved succsssfully!", "MiningService GUI");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("SaveSettings exception: " + ex.Message);
-            }
-        }
-
-        private void UpdateSettings(Settings passedSettings)
-        {
-            List<TextBox> textBoxes = new List<TextBox>();
-            List<NumericUpDown> numericBoxes = new List<NumericUpDown>();
-
-            foreach (Control c in this.Controls)
-            {
-                if (c.GetType() == typeof(TextBox))
-                    textBoxes.Add((TextBox)c);
-
-                if (c.GetType() == typeof(NumericUpDown))
-                    numericBoxes.Add((NumericUpDown)c);
-            }
-
-            foreach (TextBox textBox in textBoxes)
-            {
-                PropertyInfo propertyInfo = passedSettings.GetType().GetProperty(textBox.Name);
-                propertyInfo.SetValue(passedSettings, Convert.ChangeType(textBox.Text, propertyInfo.PropertyType), null);
-            }
-
-            foreach (NumericUpDown numeric in numericBoxes)
-            {
-                PropertyInfo propertyInfo = passedSettings.GetType().GetProperty(numeric.Name);
-                propertyInfo.SetValue(passedSettings, Convert.ChangeType(numeric.Value, propertyInfo.PropertyType), null);
-            }
-
-            for (int i = 0; i < checkedListSettings.Items.Count; i++)
-            {
-                PropertyInfo propertyInfo = passedSettings.GetType().GetProperty(checkedListSettings.Items[i].ToString());
-                propertyInfo.SetValue(passedSettings, checkedListSettings.GetItemChecked(i));
-            }
-        }
-
-        private void PopulateCheckedListBox(Settings passedSettings, CheckedListBox checkedListBox)
-        {
-            checkedListBox.Items.Clear();
-
-            foreach (var prop in passedSettings.GetType().GetProperties())
-            {
-                if (prop.PropertyType == typeof(bool))
-                    checkedListBox.Items.Add(prop.Name, (bool)prop.GetValue(passedSettings, null));
-            }
-
-            checkedListBox.Visible = true;
+            DeleteFormObjects();
         }
 
         private void CreateFormObjects(Settings passedSettings)
@@ -212,36 +131,43 @@ namespace MiningService
             checkedListSettings.Visible = false;
         }
 
-        private void SaveOnExit()
-        {
-            if (changesMade)
-            {
-                if (MessageBox.Show("You have unsaved changes. Would you like to save them now?", "Unsaved Changes", MessageBoxButtons.YesNo) == DialogResult.Yes)
-                {
-                    SaveSettings();
-                }
-            }
-        }
-
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Application.Exit();
-        }
-
-        private void loadToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            LoadSettings();
-        }
-
-        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            SaveSettings();
         }
 
         private void formMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             if (changesMade)
                 SaveOnExit();
+        }
+
+        private void FormMain_Load(object sender, EventArgs e)
+        {
+            LoadSettings();
+        }
+
+        private void ignoredProgramsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            IgnoreList ignore = new IgnoreList(settings);
+            if (ignore.ShowDialog() == DialogResult.Yes)
+                changesMade = true;
+        }
+
+        private void installServiceToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!Utilities.IsAdministrator())
+            {
+                MessageBox.Show("You must run the GUI with Admin rights to do this.");
+                return;
+            }
+
+            if (!File.Exists("MiningService.exe"))
+            {
+                MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
+            }
+
+            Process.Start("MiningService.exe", "install");
         }
 
         private void ItemWasUpdated(object sender, ItemCheckEventArgs e)
@@ -255,15 +181,9 @@ namespace MiningService
             return null;
         }
 
-        private void FormMain_Load(object sender, EventArgs e)
+        private void loadToolStripMenuItem_Click(object sender, EventArgs e)
         {
             LoadSettings();
-        }
-        
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            DeleteFormObjects();
         }
 
         private void minerConfigurationToolStripMenuItem_Click(object sender, EventArgs e)
@@ -271,14 +191,19 @@ namespace MiningService
             MinerEditor editor = new MinerEditor(settings);
             if (editor.ShowDialog() == DialogResult.Yes)
                 changesMade = true;
-
         }
 
-        private void ignoredProgramsToolStripMenuItem_Click(object sender, EventArgs e)
+        private void PopulateCheckedListBox(Settings passedSettings, CheckedListBox checkedListBox)
         {
-            IgnoreList ignore = new IgnoreList(settings);
-            if (ignore.ShowDialog() == DialogResult.Yes)
-                changesMade = true;
+            checkedListBox.Items.Clear();
+
+            foreach (var prop in passedSettings.GetType().GetProperties())
+            {
+                if (prop.PropertyType == typeof(bool))
+                    checkedListBox.Items.Add(prop.Name, (bool)prop.GetValue(passedSettings, null));
+            }
+
+            checkedListBox.Visible = true;
         }
 
         private void runToolStripMenuItem_Click(object sender, EventArgs e)
@@ -289,6 +214,22 @@ namespace MiningService
             }
 
             Process.Start("MiningService.exe");
+        }
+
+        private void SaveOnExit()
+        {
+            if (changesMade)
+            {
+                if (MessageBox.Show("You have unsaved changes. Would you like to save them now?", "Unsaved Changes", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    SaveSettings();
+                }
+            }
+        }
+
+        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SaveSettings();
         }
 
         private void startServiceToolStripMenuItem_Click(object sender, EventArgs e)
@@ -307,7 +248,7 @@ namespace MiningService
             {
                 MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
             }
-            
+
             if (!Utilities.IsProcessRunning("MiningService.exe"))
             {
                 MessageBox.Show("The MiningService is not currently running!");
@@ -322,7 +263,6 @@ namespace MiningService
 
         private void uninstallServiceToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
             if (!Utilities.IsAdministrator())
             {
                 MessageBox.Show("You must run the GUI with Admin rights to do this.");
@@ -337,21 +277,75 @@ namespace MiningService
             Process.Start("MiningService.exe", "uninstall");
         }
 
-        private void installServiceToolStripMenuItem_Click(object sender, EventArgs e)
+        private void UpdateSettings(Settings passedSettings)
         {
+            List<TextBox> textBoxes = new List<TextBox>();
+            List<NumericUpDown> numericBoxes = new List<NumericUpDown>();
 
-            if (!Utilities.IsAdministrator())
+            foreach (Control c in this.Controls)
             {
-                MessageBox.Show("You must run the GUI with Admin rights to do this.");
-                return;
+                if (c.GetType() == typeof(TextBox))
+                    textBoxes.Add((TextBox)c);
+
+                if (c.GetType() == typeof(NumericUpDown))
+                    numericBoxes.Add((NumericUpDown)c);
             }
 
-            if (!File.Exists("MiningService.exe"))
+            foreach (TextBox textBox in textBoxes)
             {
-                MessageBox.Show("MiningService was not found in this directory.", "Error", MessageBoxButtons.OK);
+                PropertyInfo propertyInfo = passedSettings.GetType().GetProperty(textBox.Name);
+                propertyInfo.SetValue(passedSettings, Convert.ChangeType(textBox.Text, propertyInfo.PropertyType), null);
             }
 
-            Process.Start("MiningService.exe", "install");
+            foreach (NumericUpDown numeric in numericBoxes)
+            {
+                PropertyInfo propertyInfo = passedSettings.GetType().GetProperty(numeric.Name);
+                propertyInfo.SetValue(passedSettings, Convert.ChangeType(numeric.Value, propertyInfo.PropertyType), null);
+            }
+
+            for (int i = 0; i < checkedListSettings.Items.Count; i++)
+            {
+                PropertyInfo propertyInfo = passedSettings.GetType().GetProperty(checkedListSettings.Items[i].ToString());
+                propertyInfo.SetValue(passedSettings, checkedListSettings.GetItemChecked(i));
+            }
+        }
+
+        public void LoadSettings()
+        {
+            settings = new Settings();
+            saveToolStripMenuItem.Enabled = true;
+
+            try
+            {
+                if (File.Exists(settingsFileName))
+                {
+                    //Try to read and deserialize the passed file path into the Settings object
+                    settings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(settingsFileName));
+                }
+                CreateFormObjects(settings);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("LoadSettings exception: " + ex.Message);
+            }
+
+            changesMade = false;
+        }
+
+        public void SaveSettings()
+        {
+            UpdateSettings(settings);
+
+            try
+            {
+                File.WriteAllText(settingsFileName, JsonConvert.SerializeObject(settings, Formatting.Indented));
+                changesMade = false;
+                MessageBox.Show("Settings were saved succsssfully!", "MiningService GUI");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("SaveSettings exception: " + ex.Message);
+            }
         }
     }
 }
