@@ -413,7 +413,7 @@ namespace IdleMon
                         !Utilities.ignoredFullscreenApps.Contains(Utilities.fullscreenAppName))
                     {
                         //Last app is still running
-                        Utilities.Log($"CheckFullscreenStillRunning {CheckFullscreenStillRunning}: {Utilities.fullscreenAppName}");
+                        //Utilities.Log($"CheckFullscreenStillRunning {CheckFullscreenStillRunning}: {Utilities.fullscreenAppName}");
                         return;
                     }
                     else
