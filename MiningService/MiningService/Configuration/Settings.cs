@@ -48,9 +48,6 @@ namespace MiningService
         public int minutesUntilIdle { get; set; }
 
         [JsonProperty]
-        public int resumeMiningTempInPercent { get; set; }
-
-        [JsonProperty]
         public bool monitorCpuTemp { get; set; }
 
         [JsonProperty]
@@ -63,6 +60,12 @@ namespace MiningService
         public bool preventSleep { get; set; }
 
         [JsonProperty]
+        public int resumeMiningTempInPercent { get; set; }
+
+        [JsonProperty]
+        public bool resumePausedMiningOnLockOrLogoff { get; set; }
+
+        [JsonProperty]
         public bool runInUserSession { get; set; }
 
         [JsonProperty]
@@ -73,9 +76,6 @@ namespace MiningService
 
         [JsonProperty]
         public bool verifyNetworkConnectivity { get; set; }
-
-        [JsonProperty]
-        public bool resumePausedMiningOnLockOrLogoff { get; set; }
 
         public void SetupDefaultConfig()
         {

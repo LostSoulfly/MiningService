@@ -44,11 +44,6 @@ namespace MiningService
             return (int)this.GetCpuTemperatures().Average();
         }
 
-        public int GetNumberOfCpus()
-        {
-            return this.GetCpuTemperatures().Count;
-        }
-
         public List<float> GetGpuTemperatures()
         {
             List<float> gpuTemps = new List<float>();
@@ -82,6 +77,11 @@ namespace MiningService
         public int GetGpuTemperaturesAverage()
         {
             return (int)this.GetGpuTemperatures().Average();
+        }
+
+        public int GetNumberOfCpus()
+        {
+            return this.GetCpuTemperatures().Count;
         }
 
         public int GetNumberOfGpus()

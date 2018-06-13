@@ -26,6 +26,7 @@ namespace MiningService
 
         #region DLLImports and enums (ThreadExecutionState, WTSQuerySession)
 
+        internal static HardwareMonitor temperatureMonitor;
         [Flags]
         public enum EXECUTION_STATE : uint
         {
@@ -73,19 +74,15 @@ namespace MiningService
         [DllImport("Wtsapi32.dll")]
         private static extern bool WTSQuerySessionInformation(IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass, out System.IntPtr ppBuffer, out int pBytesReturned);
 
-        internal static HardwareMonitor temperatureMonitor;
-
         #endregion DLLImports and enums (ThreadExecutionState, WTSQuerySession)
 
         #region Check for network connection/MinerProxy server status
-
-
 
         public static bool CheckForInternetConnection()
         {
             //This is called to verify network connectivity, I personally use a MinerProxy instance's built-in web server API at /status, which returns "True".
             //In theory, anything that actually loads should work.
-            
+
             if (!Config.settings.verifyNetworkConnectivity)
                 return true;
 
@@ -103,7 +100,6 @@ namespace MiningService
                 Log("Network Conectivity URL unreachable.");
                 return false;
             }
-
         }
 
         #endregion Check for network connection/MinerProxy server status
@@ -152,7 +148,6 @@ namespace MiningService
 
             foreach (var miner in miners)
             {
-
                 if (isCpuList && Config.isCpuTempThrottled)
                     return true;
 
@@ -257,7 +252,7 @@ namespace MiningService
             }
         }
 
-            public static void KillMiners()
+        public static void KillMiners()
         {
             //Debug("KillMiners entered");
             //loop through the CPU miner list and kill all miners

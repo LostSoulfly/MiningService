@@ -324,7 +324,8 @@ namespace MiningService
                     File.WriteAllText(settingsFileName, oldSettings);
                     File.Delete("MinerService.json");
                 }
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 MessageBox.Show("Error occurred trying to copy old settings to the new file name: " + ex.Message);
             }

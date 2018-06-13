@@ -93,6 +93,11 @@ namespace MiningService
             UpdateSettings();
         }
 
+        private void buttonUpdate_Click(object sender, EventArgs e)
+        {
+            Navigate(update: true);
+        }
+
         private void comboMiners_SelectedIndexChanged(object sender, EventArgs e)
         {
             listIndex = 0;
@@ -260,11 +265,6 @@ namespace MiningService
             settings.gpuMiners = tempGpu;
 
             //MessageBox.Show("Settings updated!");
-        }
-
-        private void buttonUpdate_Click(object sender, EventArgs e)
-        {
-            Navigate(update: true);
         }
     }
 }

@@ -36,18 +36,14 @@ namespace MiningService
 
         internal static bool fullscreenDetected { get; set; }
 
+        internal static bool isCpuTempThrottled { get; set; }
         internal static bool isCurrentlyMining { get; set; }
 
-        internal static bool isMiningPaused { get; set; }
-
-        internal static bool isCpuTempThrottled { get; set; }
-
         internal static bool isGpuTempThrottled { get; set; }
-
+        internal static bool isMinerServiceStopped { get; set; }
+        internal static bool isMiningPaused { get; set; }
         internal static bool isPipeConnected { get; set; }
 
-        internal static bool isMinerServiceStopped { get; set; }
-        
         //Global variables used in different classes
         internal static bool isUserIdle { get; set; }
 

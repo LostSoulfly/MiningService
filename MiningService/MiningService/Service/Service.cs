@@ -62,119 +62,6 @@ namespace MiningService
 
         #region TopShelf Start/Stop/Abort
 
-        public void Abort()
-        {
-            host.Stop();
-        }
-
-        public bool Start(HostControl hc)
-        {
-            if (!Config.configInitialized)
-            {
-                Utilities.Log("Configuration not loaded; something went wrong!", force: true);
-                //host.Stop();
-                return false;
-            }
-
-            System.Threading.Tasks.Task.Run(() => StartTask(hc));
-
-            return true;
-        }
-
-        private void StartTask(HostControl hc)
-        {
-            Utilities.Log("Starting MiningService: " + Utilities.version);
-            host = hc;
-
-            //These only need to be set up once, and this may get called again if the system
-            //wakes up from sleep, so we make sure it is only initialized once.
-            if (!Config.serviceInitialized)
-            {
-                Utilities.Log("Initializing MiningService.. CPU Cores: " + Environment.ProcessorCount);
-
-                if (Utilities.DoesBatteryExist())
-                {
-                    Config.doesBatteryExist = true;
-                    Utilities.Log("Battery found. IsBatteryFull: " + Utilities.IsBatteryFull());
-                }
-                else
-                {
-                    Utilities.Debug("No battery found.");
-                }
-
-                SystemEvents.PowerModeChanged += OnPowerChange;
-                minerTimer.Elapsed += OnMinerTimerEvent;
-                sessionTimer.Elapsed += OnSessionTimer;
-                temperatureTimer.Elapsed += OnTemperatureTimer;
-
-                minerTimer.AutoReset = true;
-
-                //setup the NamedPipeClient and events
-                Config.client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
-                Config.client.ServerMessage += OnServerMessage;
-                Config.client.Error += OnError;
-                Config.client.Disconnected += OnServerDisconnect;
-
-                Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem(false) + ". User: " + Environment.UserName);
-                Config.serviceInitialized = true;
-            }
-
-            if (Config.settings.monitorCpuTemp || Config.settings.monitorGpuTemp)
-            {
-                try
-                {
-                    Utilities.temperatureMonitor = new HardwareMonitor();
-                    Utilities.Log($"Hardware monitoring enabled. CPUs: {Utilities.temperatureMonitor.GetNumberOfCpus()} GPUs:{Utilities.temperatureMonitor.GetNumberOfGpus()}");
-                }
-                catch (Exception ex)
-                {
-                    Utilities.Log("HardwareMonitor error: " + ex.Message);
-                }
-            }
-
-            //Kill and miners and IdleMons that may be running, just in case!
-            Utilities.KillMiners();
-            Utilities.KillIdlemon(Config.client);
-
-            Config.isPipeConnected = false;
-
-            Timer networkTimer = new Timer(60000);
-
-            networkTimer.Elapsed += (sender, e) =>
-            {
-                if (Utilities.CheckForInternetConnection())
-                {
-                    if (Config.isMinerServiceStopped)
-                        Start(host);
-                    else if (!minerTimer.Enabled)
-                        StartTimers();
-
-                    networkTimer.Interval = 3600000; //once per hour
-                }
-                else
-                {
-                    if (minerTimer.Enabled)
-                        Stop();
-                    networkTimer.Interval = 60000;
-                }
-            };
-
-            if (Config.settings.verifyNetworkConnectivity)
-            {
-                networkTimer.Start();
-
-                if (Utilities.CheckForInternetConnection())
-                    StartTimers();
-            }
-            else
-            {
-                StartTimers();
-            }
-            
-
-            Utilities.Log("MiningService is running");
-        }
-
         private void OnTemperatureTimer(object sender, ElapsedEventArgs e)
         {
             if (Config.isMiningPaused)
@@ -244,14 +131,126 @@ namespace MiningService
             }
         }
 
+        private void StartTask(HostControl hc)
+        {
+            Utilities.Log("Starting MiningService: " + Utilities.version);
+            host = hc;
+
+            //These only need to be set up once, and this may get called again if the system
+            //wakes up from sleep, so we make sure it is only initialized once.
+            if (!Config.serviceInitialized)
+            {
+                Utilities.Log("Initializing MiningService.. CPU Cores: " + Environment.ProcessorCount);
+
+                if (Utilities.DoesBatteryExist())
+                {
+                    Config.doesBatteryExist = true;
+                    Utilities.Log("Battery found. IsBatteryFull: " + Utilities.IsBatteryFull());
+                }
+                else
+                {
+                    Utilities.Debug("No battery found.");
+                }
+
+                SystemEvents.PowerModeChanged += OnPowerChange;
+                minerTimer.Elapsed += OnMinerTimerEvent;
+                sessionTimer.Elapsed += OnSessionTimer;
+                temperatureTimer.Elapsed += OnTemperatureTimer;
+
+                minerTimer.AutoReset = true;
+
+                //setup the NamedPipeClient and events
+                Config.client = new NamedPipeClient<IdleMessage>(@"Global\MINERPIPE");
+                Config.client.ServerMessage += OnServerMessage;
+                Config.client.Error += OnError;
+                Config.client.Disconnected += OnServerDisconnect;
+
+                Utilities.Log("MiningService Initialized. Is SYSTEM: " + Utilities.IsSystem(false) + ". User: " + Environment.UserName);
+                Config.serviceInitialized = true;
+            }
+
+            if (Config.settings.monitorCpuTemp || Config.settings.monitorGpuTemp)
+            {
+                try
+                {
+                    Utilities.temperatureMonitor = new HardwareMonitor();
+                    Utilities.Log($"Hardware monitoring enabled. CPUs: {Utilities.temperatureMonitor.GetNumberOfCpus()} GPUs: {Utilities.temperatureMonitor.GetNumberOfGpus()}");
+                }
+                catch (Exception ex)
+                {
+                    Utilities.Log("HardwareMonitor error: " + ex.Message);
+                }
+            }
+
+            //Kill and miners and IdleMons that may be running, just in case!
+            Utilities.KillMiners();
+            Utilities.KillIdlemon(Config.client);
+
+            Config.isPipeConnected = false;
+
+            Timer networkTimer = new Timer(60000);
+
+            networkTimer.Elapsed += (sender, e) =>
+            {
+                if (Utilities.CheckForInternetConnection())
+                {
+                    if (Config.isMinerServiceStopped)
+                        Start(host);
+                    else if (!minerTimer.Enabled)
+                        StartTimers();
+
+                    networkTimer.Interval = 3600000; //once per hour
+                }
+                else
+                {
+                    if (minerTimer.Enabled)
+                        Stop();
+                    networkTimer.Interval = 60000;
+                }
+            };
+
+            if (Config.settings.verifyNetworkConnectivity)
+            {
+                networkTimer.Start();
+
+                if (Utilities.CheckForInternetConnection())
+                    StartTimers();
+            }
+            else
+            {
+                StartTimers();
+            }
+
+            Utilities.Log("MiningService is running");
+        }
+
+        public void Abort()
+        {
+            host.Stop();
+        }
+
+        public bool Start(HostControl hc)
+        {
+            if (!Config.configInitialized)
+            {
+                Utilities.Log("Configuration not loaded; something went wrong!", force: true);
+                //host.Stop();
+                return false;
+            }
+
+            System.Threading.Tasks.Task.Run(() => StartTask(hc));
+
+            return true;
+        }
+
         public void StartTimers()
         {
             minerTimer.Start();
             sessionTimer.Start();
 
-            if (Config.settings.monitorCpuTemp  || Config.settings.monitorGpuTemp)
+            if (Config.settings.monitorCpuTemp || Config.settings.monitorGpuTemp)
                 temperatureTimer.Start();
-            
+
             //apiCheckTimer.Start();
 
             //Let's try to start IdleMon now
