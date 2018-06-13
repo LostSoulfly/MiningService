@@ -8,13 +8,14 @@ using Topshelf;
 
 namespace MiningService
 {
-    internal class MyService
+    internal class MinerService
     {
         //TopShelf service controller
         private HostControl host;
 
         private Timer minerTimer = new Timer(5000);
         private Timer sessionTimer = new Timer(10000);
+        private Timer temperatureTimer = new Timer(10000);
 
         //Pipe that is used to connect to the IdleMon running in the user's desktop session
         //public NamedPipeClient<IdleMessage> client;
@@ -68,15 +69,22 @@ namespace MiningService
 
         public bool Start(HostControl hc)
         {
-            Utilities.Log("Starting MiningService: " + Utilities.version);
-            host = hc;
-
             if (!Config.configInitialized)
             {
                 Utilities.Log("Configuration not loaded; something went wrong!", force: true);
                 //host.Stop();
                 return false;
             }
+
+            System.Threading.Tasks.Task.Run(() => StartTask(hc));
+
+            return true;
+        }
+
+        private void StartTask(HostControl hc)
+        {
+            Utilities.Log("Starting MiningService: " + Utilities.version);
+            host = hc;
 
             //These only need to be set up once, and this may get called again if the system
             //wakes up from sleep, so we make sure it is only initialized once.
@@ -97,6 +105,7 @@ namespace MiningService
                 SystemEvents.PowerModeChanged += OnPowerChange;
                 minerTimer.Elapsed += OnMinerTimerEvent;
                 sessionTimer.Elapsed += OnSessionTimer;
+                temperatureTimer.Elapsed += OnTemperatureTimer;
 
                 minerTimer.AutoReset = true;
 
@@ -110,36 +119,139 @@ namespace MiningService
                 Config.serviceInitialized = true;
             }
 
+            if (Config.settings.monitorCpuTemp || Config.settings.monitorGpuTemp)
+            {
+                try
+                {
+                    Utilities.temperatureMonitor = new HardwareMonitor();
+                    Utilities.Log($"Hardware monitoring enabled. CPUs: {Utilities.temperatureMonitor.GetNumberOfCpus()} GPUs:{Utilities.temperatureMonitor.GetNumberOfGpus()}");
+                }
+                catch (Exception ex)
+                {
+                    Utilities.Log("HardwareMonitor error: " + ex.Message);
+                }
+            }
+
             //Kill and miners and IdleMons that may be running, just in case!
             Utilities.KillMiners();
             Utilities.KillIdlemon(Config.client);
 
             Config.isPipeConnected = false;
 
-            Timer networkTimer = new Timer(10000);
+            Timer networkTimer = new Timer(60000);
 
             networkTimer.Elapsed += (sender, e) =>
             {
                 if (Utilities.CheckForInternetConnection())
                 {
-                    StartTimers();
-                    networkTimer.Stop();
+                    if (Config.isMinerServiceStopped)
+                        Start(host);
+                    else if (!minerTimer.Enabled)
+                        StartTimers();
+
+                    networkTimer.Interval = 3600000; //once per hour
+                }
+                else
+                {
+                    if (minerTimer.Enabled)
+                        Stop();
+                    networkTimer.Interval = 60000;
                 }
             };
 
-            if (!Utilities.CheckForInternetConnection())
+            if (Config.settings.verifyNetworkConnectivity)
+            {
                 networkTimer.Start();
+
+                if (Utilities.CheckForInternetConnection())
+                    StartTimers();
+            }
             else
+            {
                 StartTimers();
+            }
+            
 
             Utilities.Log("MiningService is running");
-            return true;
+        }
+
+        private void OnTemperatureTimer(object sender, ElapsedEventArgs e)
+        {
+            if (Config.isMiningPaused)
+                return;
+
+            if (Config.settings.monitorCpuTemp)
+            {
+                int cpuAverage = Utilities.temperatureMonitor.GetCpuTemperaturesAverage();
+                if (Config.isCpuTempThrottled)
+                {
+                    if ((cpuAverage * (Config.settings.resumeMiningTempInPercent / 100)) <= cpuAverage)
+                    {
+                        Utilities.Log($"CPU Temps have returned to an accepable temperature: {cpuAverage}.");
+                        Config.isCpuTempThrottled = false;
+                    }
+                }
+                else
+                {
+                    if (cpuAverage > Config.settings.maxCpuTemp)
+                    {
+                        Utilities.KillMinerList(Config.settings.cpuMiners);
+
+                        if (Config.isPipeConnected && !Config.isCpuTempThrottled)
+                        {
+                            Config.client.PushMessage(new IdleMessage
+                            {
+                                packetId = (int)Config.PacketID.Message,
+                                isIdle = false,
+                                requestId = (int)Config.PacketID.None,
+                                data = $"CPU Temperature has exceeded your limit of {Config.settings.maxCpuTemp}. Mining has stopped temporarily."
+                            });
+                        }
+                        Config.isCpuTempThrottled = true;
+                    }
+                }
+            }
+
+            if (Config.settings.monitorGpuTemp)
+            {
+                int gpuAverage = Utilities.temperatureMonitor.GetGpuTemperaturesAverage();
+                if (Config.isGpuTempThrottled)
+                {
+                    if ((gpuAverage * (Config.settings.resumeMiningTempInPercent / 100)) < gpuAverage)
+                    {
+                        Utilities.Log($"GPU Temps have returned to an accepable temperature: {gpuAverage}.");
+                        Config.isGpuTempThrottled = false;
+                    }
+                }
+                else
+                {
+                    if (gpuAverage > Config.settings.maxGpuTemp)
+                    {
+                        Utilities.KillMinerList(Config.settings.gpuMiners);
+                        if (Config.isPipeConnected && !Config.isCpuTempThrottled)
+                        {
+                            Config.client.PushMessage(new IdleMessage
+                            {
+                                packetId = (int)Config.PacketID.Message,
+                                isIdle = false,
+                                requestId = (int)Config.PacketID.None,
+                                data = $"GPU Temperature has exceeded your limit of {Config.settings.maxGpuTemp}. Mining has stopped temporarily."
+                            });
+                        }
+                        Config.isGpuTempThrottled = true;
+                    }
+                }
+            }
         }
 
         public void StartTimers()
         {
             minerTimer.Start();
             sessionTimer.Start();
+
+            if (Config.settings.monitorCpuTemp  || Config.settings.monitorGpuTemp)
+                temperatureTimer.Start();
+            
             //apiCheckTimer.Start();
 
             //Let's try to start IdleMon now
@@ -160,11 +272,12 @@ namespace MiningService
             lock (Config.timeLock)
             {
                 Utilities.Log("Stopping MiningService..");
-
+                Config.isMinerServiceStopped = true;
                 Utilities.KillMiners();
                 Utilities.KillIdlemon(Config.client);
                 minerTimer.Stop();
                 sessionTimer.Stop();
+                temperatureTimer.Stop();
                 //apiCheckTimer.Stop();
                 Config.client.Stop();
 
@@ -478,6 +591,10 @@ namespace MiningService
                         Config.computerIsLocked = true;
                         Config.currentSessionId = args.SessionId;
                         Config.isUserIdle = true;
+
+                        if (Config.settings.resumePausedMiningOnLockOrLogoff)
+                            Config.isMiningPaused = false;
+
                         break;
 
                     case Topshelf.SessionChangeReasonCode.SessionLogoff:
@@ -485,6 +602,10 @@ namespace MiningService
                         Utilities.Log(string.Format("Session: {0} - Reason: {1} - Logoff", args.SessionId, args.ReasonCode));
                         Config.currentSessionId = 0;
                         Config.isUserIdle = true;
+
+                        if (Config.settings.resumePausedMiningOnLockOrLogoff)
+                            Config.isMiningPaused = false;
+
                         break;
 
                     case Topshelf.SessionChangeReasonCode.SessionUnlock:
@@ -509,10 +630,13 @@ namespace MiningService
                         Config.computerIsLocked = true;
                         Utilities.Log(string.Format("Session: {0} - Reason: {1} - RemoteDisconnect", args.SessionId, args.ReasonCode));
                         Config.currentSessionId = args.SessionId;
-                        //if (Config.currentSessionId > 0)
-                        //    Config.isUserLoggedIn = true;
                         Config.remoteDisconnectedSession = args.SessionId;
                         Config.isUserIdle = true;
+
+                        if (Config.currentSessionId == 0)
+                            if (Config.settings.resumePausedMiningOnLockOrLogoff)
+                                Config.isMiningPaused = false;
+
                         return;
                         break;
 
@@ -741,7 +865,7 @@ namespace MiningService
 
                 if (Config.settings.mineWithCpu && !Config.isMiningPaused)
                 {
-                    if (!Utilities.AreMinersRunning(Config.settings.cpuMiners, Config.isUserIdle))
+                    if (!Utilities.AreMinersRunning(Config.settings.cpuMiners, Config.isUserIdle, true))
                     {
                         didStartMiners = true;
                         Utilities.Log("CPU Miners are being started in " + (Config.isUserIdle ? "idle" : "active") + " mode.");
@@ -752,7 +876,7 @@ namespace MiningService
 
                 if (Config.settings.mineWithGpu && !Config.isMiningPaused)
                 {
-                    if (!Utilities.AreMinersRunning(Config.settings.gpuMiners, Config.isUserIdle))
+                    if (!Utilities.AreMinersRunning(Config.settings.gpuMiners, Config.isUserIdle, false))
                     {
                         didStartMiners = true;
                         Utilities.Log("GPU Miners are being started in " + (Config.isUserIdle ? "idle" : "active") + " mode.");

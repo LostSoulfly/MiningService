@@ -55,7 +55,7 @@
             this.configurationToolStripMenuItem});
             this.menu.Location = new System.Drawing.Point(0, 0);
             this.menu.Name = "menu";
-            this.menu.Size = new System.Drawing.Size(421, 24);
+            this.menu.Size = new System.Drawing.Size(431, 24);
             this.menu.TabIndex = 0;
             this.menu.Text = "menuStrip1";
             // 
@@ -173,7 +173,7 @@
             this.checkedListSettings.FormattingEnabled = true;
             this.checkedListSettings.Location = new System.Drawing.Point(12, 27);
             this.checkedListSettings.Name = "checkedListSettings";
-            this.checkedListSettings.Size = new System.Drawing.Size(196, 169);
+            this.checkedListSettings.Size = new System.Drawing.Size(220, 169);
             this.checkedListSettings.TabIndex = 5;
             this.checkedListSettings.Visible = false;
             this.checkedListSettings.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.ItemWasUpdated);
@@ -182,7 +182,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(421, 360);
+            this.ClientSize = new System.Drawing.Size(431, 360);
             this.Controls.Add(this.checkedListSettings);
             this.Controls.Add(this.menu);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;

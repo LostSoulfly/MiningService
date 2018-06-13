@@ -40,8 +40,14 @@ namespace MiningService
 
         internal static bool isMiningPaused { get; set; }
 
+        internal static bool isCpuTempThrottled { get; set; }
+
+        internal static bool isGpuTempThrottled { get; set; }
+
         internal static bool isPipeConnected { get; set; }
 
+        internal static bool isMinerServiceStopped { get; set; }
+        
         //Global variables used in different classes
         internal static bool isUserIdle { get; set; }
 
@@ -84,6 +90,8 @@ namespace MiningService
         {
             //re-initialize our global settings object
             settings = new Settings();
+
+            Utilities.Log("Creating default configuration file.");
 
             //Call SetupDefaultConfig(), which sets the pre-programmed defaults into the global settings object
             settings.SetupDefaultConfig();
@@ -139,6 +147,9 @@ namespace MiningService
             if (tempSettings.cpuUsageThresholdWhileNotIdle > 100 || tempSettings.cpuUsageThresholdWhileNotIdle < 0)
                 tempSettings.cpuUsageThresholdWhileNotIdle = 80;
 
+            if (tempSettings.resumeMiningTempInPercent <= 0)
+                tempSettings.resumeMiningTempInPercent = 5;
+
             //if (tempSettings.resumePausedMiningAfterMinutes > 3600 || tempSettings.resumePausedMiningAfterMinutes < 0)
             //    tempSettings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
 
@@ -183,7 +194,21 @@ namespace MiningService
             Settings settingsJson = new Settings();
 
             if (jsonFilePath.Length == 0)
-                jsonFilePath = Utilities.ApplicationPath() + "MinerService.json";
+                jsonFilePath = Utilities.ApplicationPath() + "MiningService.json";
+
+            try
+            {
+                if (File.Exists("MinerService.json"))
+                {
+                    string oldSettings = File.ReadAllText("MinerService.json");
+                    File.WriteAllText(jsonFilePath, oldSettings);
+                    File.Delete("MinerService.json");
+                }
+            }
+            catch (Exception ex)
+            {
+                Utilities.Log("Error occurred trying to copy old settings to the new file name: " + ex.Message);
+            }
 
             //If the passed file path does not exist, load defaults and save them to file
             if (!File.Exists(jsonFilePath))
@@ -216,7 +241,7 @@ namespace MiningService
         public static void WriteConfigToFile(string jsonFilePath = "")
         {
             if (jsonFilePath.Length == 0)
-                jsonFilePath = Utilities.ApplicationPath() + "MinerService.json";
+                jsonFilePath = Utilities.ApplicationPath() + "MiningService.json";
 
             try
             {

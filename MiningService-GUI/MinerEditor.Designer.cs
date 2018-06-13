@@ -47,6 +47,7 @@
             this.buttonSave = new System.Windows.Forms.Button();
             this.buttonCancel = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.buttonUpdate = new System.Windows.Forms.Button();
             this.groupMiner.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -118,6 +119,7 @@
             // 
             // groupMiner
             // 
+            this.groupMiner.Controls.Add(this.buttonUpdate);
             this.groupMiner.Controls.Add(this.checkMinerDisabled);
             this.groupMiner.Controls.Add(this.checkMineNotIdle);
             this.groupMiner.Controls.Add(this.label3);
@@ -129,7 +131,7 @@
             this.groupMiner.Controls.Add(this.textExecutable);
             this.groupMiner.Location = new System.Drawing.Point(13, 47);
             this.groupMiner.Name = "groupMiner";
-            this.groupMiner.Size = new System.Drawing.Size(505, 160);
+            this.groupMiner.Size = new System.Drawing.Size(505, 185);
             this.groupMiner.TabIndex = 10;
             this.groupMiner.TabStop = false;
             this.groupMiner.Text = "Miner";
@@ -249,11 +251,23 @@
             this.buttonCancel.UseVisualStyleBackColor = true;
             this.buttonCancel.Click += new System.EventHandler(this.buttonCancel_Click);
             // 
+            // buttonUpdate
+            // 
+            this.buttonUpdate.FlatStyle = System.Windows.Forms.FlatStyle.System;
+            this.buttonUpdate.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.buttonUpdate.Location = new System.Drawing.Point(372, 156);
+            this.buttonUpdate.Name = "buttonUpdate";
+            this.buttonUpdate.Size = new System.Drawing.Size(126, 23);
+            this.buttonUpdate.TabIndex = 13;
+            this.buttonUpdate.Text = "Update Miner";
+            this.buttonUpdate.UseVisualStyleBackColor = true;
+            this.buttonUpdate.Click += new System.EventHandler(this.buttonUpdate_Click);
+            // 
             // MinerEditor
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(530, 215);
+            this.ClientSize = new System.Drawing.Size(530, 241);
             this.Controls.Add(this.buttonCancel);
             this.Controls.Add(this.buttonSave);
             this.Controls.Add(this.groupMiner);
@@ -295,5 +309,6 @@
         private System.Windows.Forms.Button buttonSave;
         private System.Windows.Forms.Button buttonCancel;
         private System.Windows.Forms.ToolTip toolTip;
+        private System.Windows.Forms.Button buttonUpdate;
     }
 }

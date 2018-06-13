@@ -23,9 +23,9 @@ namespace MiningService
                 {
                     //set up some events for the TopShelf library, so we are notified of important events automatically
                     //Including starting/stopping the service as well as Windows Session changes.
-                    configure.Service<MiningService.MyService>(service =>
+                    configure.Service<MiningService.MinerService>(service =>
                     {
-                        service.ConstructUsing(s => new MiningService.MyService());
+                        service.ConstructUsing(s => new MiningService.MinerService());
                         service.WhenStarted((s, hc) => s.Start(hc));
                         service.WhenStopped(s => s.Stop());
                         service.WhenSessionChanged((s, hc, args) => s.SessionChanged(args));

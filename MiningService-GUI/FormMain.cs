@@ -16,7 +16,7 @@ namespace MiningService
         private List<TextBox> formTextBoxes = new List<TextBox>();
         private List<Label> numericUpDownLabels = new List<Label>();
         private Settings settings = new Settings();
-        private string settingsFileName = "MinerService.json";
+        private string settingsFileName = "MiningService.json";
         private List<Label> textBoxLabels = new List<Label>();
 
         public FormMain()
@@ -71,6 +71,7 @@ namespace MiningService
                 {
                     NumericUpDown numericBox = new NumericUpDown();
                     numericBox.Name = prop.Name;
+                    numericBox.Minimum = 0;
                     Label label = new Label();
                     label.Name = prop.Name;
                     label.Text = prop.Name;
@@ -314,6 +315,19 @@ namespace MiningService
         {
             settings = new Settings();
             saveToolStripMenuItem.Enabled = true;
+
+            try
+            {
+                if (File.Exists("MinerService.json"))
+                {
+                    string oldSettings = File.ReadAllText("MinerService.json");
+                    File.WriteAllText(settingsFileName, oldSettings);
+                    File.Delete("MinerService.json");
+                }
+            } catch (Exception ex)
+            {
+                MessageBox.Show("Error occurred trying to copy old settings to the new file name: " + ex.Message);
+            }
 
             try
             {

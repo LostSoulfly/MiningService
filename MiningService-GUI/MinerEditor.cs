@@ -261,5 +261,10 @@ namespace MiningService
 
             //MessageBox.Show("Settings updated!");
         }
+
+        private void buttonUpdate_Click(object sender, EventArgs e)
+        {
+            Navigate(update: true);
+        }
     }
 }

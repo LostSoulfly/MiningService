@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,7 +20,7 @@ namespace MiningService
         private static bool isSystem;
 
         //This version string is actually quite useless. I just use it to verify the running version in log files.
-        public static string version = "0.2.0";
+        public static string version = "0.2.1";
 
         #endregion Public variables
 
@@ -72,32 +73,37 @@ namespace MiningService
         [DllImport("Wtsapi32.dll")]
         private static extern bool WTSQuerySessionInformation(IntPtr hServer, int sessionId, WtsInfoClass wtsInfoClass, out System.IntPtr ppBuffer, out int pBytesReturned);
 
+        internal static HardwareMonitor temperatureMonitor;
+
         #endregion DLLImports and enums (ThreadExecutionState, WTSQuerySession)
 
         #region Check for network connection/MinerProxy server status
+
+
 
         public static bool CheckForInternetConnection()
         {
             //This is called to verify network connectivity, I personally use a MinerProxy instance's built-in web server API at /status, which returns "True".
             //In theory, anything that actually loads should work.
-
+            
             if (!Config.settings.verifyNetworkConnectivity)
                 return true;
 
+            WebClient client = new WebClient();
             try
             {
-                using (var client = new System.Net.WebClient())
-                using (var stream = client.OpenRead(Config.settings.urlToCheckForNetwork))
+                using (client.OpenRead(Config.settings.urlToCheckForNetwork))
                 {
-                    Debug("Network Connectivity verified.");
-                    return true;
                 }
+                Log("Network Connectivity verified.");
+                return true;
             }
-            catch
+            catch (WebException)
             {
-                Debug("Network Conectivity URL unreachable.");
+                Log("Network Conectivity URL unreachable.");
                 return false;
             }
+
         }
 
         #endregion Check for network connection/MinerProxy server status
@@ -137,7 +143,7 @@ namespace MiningService
 
         #region Process utilities
 
-        public static bool AreMinersRunning(List<MinerList> miners, bool isUserIdle)
+        public static bool AreMinersRunning(List<MinerList> miners, bool isUserIdle, bool isCpuList)
         {
             bool areMinersRunning = true;
             int disabled = 0;
@@ -146,6 +152,13 @@ namespace MiningService
 
             foreach (var miner in miners)
             {
+
+                if (isCpuList && Config.isCpuTempThrottled)
+                    return true;
+
+                if (!isCpuList && Config.isGpuTempThrottled)
+                    return true;
+
                 Process[] proc = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(miner.executable));
 
                 if (miner.minerDisabled || (!miner.mineWhileNotIdle && !Config.isUserIdle))
@@ -230,7 +243,21 @@ namespace MiningService
             }
         }
 
-        public static void KillMiners()
+        public static void KillMinerList(List<MinerList> miners)
+        {
+            foreach (var miner in miners)
+            {
+                if (miner.shouldMinerBeRunning || IsProcessRunning(miner))
+                {
+                    Debug("Killing miner " + miner.executable);
+                    KillProcess(Path.GetFileNameWithoutExtension(miner.executable));
+                    miner.shouldMinerBeRunning = false;
+                    miner.launchAttempts = 0;
+                }
+            }
+        }
+
+            public static void KillMiners()
         {
             //Debug("KillMiners entered");
             //loop through the CPU miner list and kill all miners

@@ -48,6 +48,9 @@ namespace MiningService
         public int minutesUntilIdle { get; set; }
 
         [JsonProperty]
+        public int resumeMiningTempInPercent { get; set; }
+
+        [JsonProperty]
         public bool monitorCpuTemp { get; set; }
 
         [JsonProperty]
@@ -71,6 +74,9 @@ namespace MiningService
         [JsonProperty]
         public bool verifyNetworkConnectivity { get; set; }
 
+        [JsonProperty]
+        public bool resumePausedMiningOnLockOrLogoff { get; set; }
+
         public void SetupDefaultConfig()
         {
             enableDebug = false;
@@ -82,14 +88,14 @@ namespace MiningService
             monitorGpuTemp = false;
             maxCpuTemp = 60;
             maxGpuTemp = 75;
+            resumeMiningTempInPercent = 5;
             mineWithCpu = true;
-            mineWithGpu = false;
+            mineWithGpu = true;
             cpuUsageThresholdWhileNotIdle = 90;
             mineIfBatteryNotFull = false;
             verifyNetworkConnectivity = false;
             urlToCheckForNetwork = "http://google.com";
             minutesUntilIdle = 10;
-            //resumePausedMiningAfterMinutes = 120;
             cpuMiners.Add(new MinerList("xmrig.exe", "-o SERVER:PORT -u MONEROADDRESS -p x -k --safe", "-o SERVER:PORT -u MONEROADDRESS -p x -k --max-cpu-usage=30", true));
             gpuMiners.Add(new MinerList("miner.exe", "--server SERVER --port PORT --user EQUIHASHADDRESS --pass x --cuda_devices 0 --fee 0", "", false));
             ignoredFullscreenApps.Add("explorer");
