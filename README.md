@@ -133,8 +133,8 @@ Visual Studio 2017 is required. It should be as simple as opening the MiningServ
 - [X] Monitor CPU usage and stop non-Idle mining if over a set threshold
 - [X] Average the CPU usage over a period of time longer than 1s, and stop programs if usage is too high while not idle
 - [X] GUI to easily modify configuration JSON
-- [ ] Monitor GPU temperature and stop programs if over a threshold
-- [ ] Monitor CPU temperature and stop programs if over a threshold
+- [X] Monitor GPU temperature and stop programs if over a threshold (experimental, not in release)
+- [X] Monitor CPU temperature and stop programs if over a threshold (experimental, not in release)
 
 ### Credits
 https://github.com/acdvorak/named-pipe-wrapper (I've modified it to keep CPU usage lower, check the PRs for example)
