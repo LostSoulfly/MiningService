@@ -252,6 +252,33 @@ namespace MiningService
             }
         }
 
+        private static void SetAfterburnerProfile(int profile)
+        {
+            if (profile == 0)
+                return;
+
+            if (!File.Exists(Config.settings.afterBurnerExePath))
+                return;
+
+            if (Config.currentAfterburnerProfile == profile)
+                return;
+
+            if (!Config.settings.autoSwitchMsiAfterburnerProfile)
+                return;
+
+            LaunchProcess(Config.settings.afterBurnerExePath, "-Profile" + profile);
+            Config.currentAfterburnerProfile = profile;
+        }
+
+        public static void ChangeAfterburnerProfile()
+        {
+            Utilities.Log($"{Config.currentAfterburnerProfile} {Config.settings.afterBurnerExePath} {Config.settings.afterBurnerActiveProfile} {Config.settings.afterBurnerIdleProfile}");
+            if (Config.isUserIdle)
+                SetAfterburnerProfile(Config.settings.afterBurnerIdleProfile);
+            else
+                SetAfterburnerProfile(Config.settings.afterBurnerActiveProfile);
+        }
+
         public static void KillMiners()
         {
             //Debug("KillMiners entered");
@@ -289,6 +316,8 @@ namespace MiningService
 
             //we're no longer mining
             Config.isCurrentlyMining = false;
+            Utilities.ChangeAfterburnerProfile();
+
         }
 
         public static bool KillProcess(string proc)
@@ -362,6 +391,8 @@ namespace MiningService
             //Debug("LaunchMiners exited. LaunchIssues: " + launchIssues);
 
             Config.isCurrentlyMining = true;
+            Utilities.ChangeAfterburnerProfile();
+
             return !launchIssues;
         }
 
@@ -399,6 +430,7 @@ namespace MiningService
 
             string arguments = Config.isUserIdle ? miner.idleArguments : miner.activeArguments;
             miner.isMiningIdleSpeed = Config.isUserIdle;
+            Utilities.ChangeAfterburnerProfile();
 
             if (arguments.Length == 0)
                 return 0;

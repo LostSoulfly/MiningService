@@ -637,7 +637,6 @@ namespace MiningService
                                 Config.isMiningPaused = false;
 
                         return;
-                        break;
 
                     case Topshelf.SessionChangeReasonCode.RemoteConnect:
                         Config.isUserLoggedIn = true;

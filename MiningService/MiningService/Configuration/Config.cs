@@ -53,6 +53,9 @@ namespace MiningService
         internal static int sessionLaunchAttempts { get; set; }
         internal static int skipTimerCycles { get; set; }
 
+        internal static int currentAfterburnerProfile { get; set; }
+
+
         public enum PacketID
         {
             None,
@@ -146,14 +149,34 @@ namespace MiningService
             if (tempSettings.resumeMiningTempInPercent <= 0)
                 tempSettings.resumeMiningTempInPercent = 5;
 
+            if (tempSettings.afterBurnerIdleProfile < 0 || tempSettings.afterBurnerIdleProfile > 5)
+                tempSettings.afterBurnerIdleProfile = 0;
+
+            if (tempSettings.afterBurnerActiveProfile < 0 || tempSettings.afterBurnerActiveProfile > 5)
+                tempSettings.afterBurnerActiveProfile = 0;
+
             //if (tempSettings.resumePausedMiningAfterMinutes > 3600 || tempSettings.resumePausedMiningAfterMinutes < 0)
             //    tempSettings.resumePausedMiningAfterMinutes = 0; //0 means don't resume!
 
             if (tempSettings.urlToCheckForNetwork.Length <= 0 && tempSettings.verifyNetworkConnectivity)
-                tempSettings.urlToCheckForNetwork = "http://beta.speedtest.net/";
+                tempSettings.urlToCheckForNetwork = "http://speedtest.net/";
 
             if (tempSettings.mineWithCpu) VerifyMiners(tempSettings.cpuMiners);
             if (tempSettings.mineWithGpu) VerifyMiners(tempSettings.gpuMiners);
+
+            if (!File.Exists(tempSettings.afterBurnerExePath))
+            {
+                var path = @"C:\Program Files (x86)\MSI Afterburner\MSIAfterburner.exe";
+                if (!File.Exists(tempSettings.afterBurnerExePath) && File.Exists(path))
+                {
+                    tempSettings.afterBurnerExePath = path;
+                }
+                else
+                {
+                    tempSettings.afterBurnerExePath = "";
+                    Utilities.Log("MSIAfterBurner.exe not found; disabling automatic profile switching.", true);
+                }
+            }
 
             if (!File.Exists(idleMonExecutable))
             {

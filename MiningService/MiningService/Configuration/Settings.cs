@@ -77,6 +77,18 @@ namespace MiningService
         [JsonProperty]
         public bool verifyNetworkConnectivity { get; set; }
 
+        [JsonProperty]
+        public string afterBurnerExePath { get; set; }
+
+        [JsonProperty]
+        public bool autoSwitchMsiAfterburnerProfile { get; set; }
+
+        [JsonProperty]
+        public int afterBurnerIdleProfile { get; set; }
+
+        [JsonProperty]
+        public int afterBurnerActiveProfile { get; set; }
+
         public void SetupDefaultConfig()
         {
             enableDebug = false;
@@ -95,11 +107,13 @@ namespace MiningService
             mineIfBatteryNotFull = false;
             verifyNetworkConnectivity = false;
             urlToCheckForNetwork = "http://google.com";
+            autoSwitchMsiAfterburnerProfile = true;
             minutesUntilIdle = 10;
             cpuMiners.Add(new MinerList("xmrig.exe", "-o SERVER:PORT -u MONEROADDRESS -p x -k --safe", "-o SERVER:PORT -u MONEROADDRESS -p x -k --max-cpu-usage=30", true));
             gpuMiners.Add(new MinerList("miner.exe", "--server SERVER --port PORT --user EQUIHASHADDRESS --pass x --cuda_devices 0 --fee 0", "", false));
             ignoredFullscreenApps.Add("explorer");
             ignoredFullscreenApps.Add("LockApp");
+            afterBurnerExePath = @"C:\Program Files (x86)\MSI Afterburner\MSIAfterburner.exe";
         }
     }
 }
